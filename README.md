@@ -3,7 +3,7 @@
 Meeting room booking for **Shree NM, Mumbai branch**. Five rooms - Spark, Power,
 Pulse, Ignite and Switch - with availability tracked per room, never globally.
 
-Built to `NM_Meet_Booking_Documentation.pdf` v1.0. That document is the contract.
+Built to `docs/NM_Meet_Booking_Documentation.pdf` v1.0. That document is the contract.
 `HANDOVER.md` records every decision taken, every question still open, and what
 is deliberately not built.
 
@@ -53,7 +53,7 @@ Python 3.11 · FastAPI · SQLAlchemy 2.0 · Alembic · Pydantic v2 · PostgreSQL
 via psycopg2 · the approved HTML/CSS/JS frontend, served from the same process.
 
 No framework on the frontend, no build step, no bundler. `static/index.html` is
-`nm-meet-web_1.html` with only its data layer replaced; everything outside the
+`docs/nm-meet-web_1.html` with only its data layer replaced; everything outside the
 `<script>` block is byte-identical.
 
 ---

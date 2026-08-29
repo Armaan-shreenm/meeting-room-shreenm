@@ -4,8 +4,8 @@ Everything a new maintainer needs that is **not** obvious from the code: which
 decisions were taken and why, what the documentation still does not answer, and
 what is deliberately not built.
 
-Built to `NM_Meet_Booking_Documentation.pdf` v1.0 (26 August 2026). That document
-is the contract. The approved frontend is `nm-meet-web_1.html`; its design is
+Built to `docs/NM_Meet_Booking_Documentation.pdf` v1.0 (26 August 2026). That document
+is the contract. The approved frontend is `docs/nm-meet-web_1.html`; its design is
 final and `static/index.html` is that file with only its data layer replaced.
 
 ---
