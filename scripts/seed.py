@@ -155,14 +155,13 @@ def seed_users(db: Session, departments: dict[str, Department]) -> None:
 
     if issued:
         # Printed once, to stdout, never committed and never stored in clear.
-        print("
-" + "=" * 66)
+        rule = "=" * 66
+        print(f"\n{rule}")
         print("  NM Meet sign-in details - shown once, not stored anywhere")
-        print("=" * 66)
+        print(rule)
         for email, password in issued:
             print(f"  {email:<34} {password}")
-        print("=" * 66 + "
-", flush=True)
+        print(f"{rule}\n", flush=True)
 
 
 def run() -> None:
