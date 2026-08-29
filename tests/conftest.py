@@ -159,12 +159,31 @@ def is_working_day(day: date) -> bool:
     return day.weekday() not in settings.closed_weekdays
 
 
-def working_day(offset: int = 30) -> date:
-    """A working day at least ``offset`` days out and inside the 90-day window."""
-    candidate = date.today() + timedelta(days=offset)
-    while not is_working_day(candidate):
-        candidate += timedelta(days=1)
-    return candidate
+def bookable_days() -> list[date]:
+    """Every day a booking may legally land on, today first.
+
+    The window is only a week now, so tests share it. The clean_slate fixture
+    purges between cases, which is what makes reuse safe.
+    """
+    today = date.today()
+    days = [
+        today + timedelta(days=n)
+        for n in range(settings.max_advance_days)
+    ]
+    return [d for d in days if is_working_day(d)]
+
+
+def working_day(offset: int = 1) -> date:
+    """A working day inside the booking window.
+
+    ``offset`` is an index into the open days, not a number of days. It wraps,
+    because a seven-day window cannot give every test its own date and does not
+    need to.
+    """
+    days = bookable_days()
+    # Skip today where possible: its earlier slots have already passed.
+    future = [d for d in days if d > date.today()] or days
+    return future[(max(offset, 1) - 1) % len(future)]
 
 
 def next_sunday(offset: int = 1) -> date:
@@ -176,8 +195,8 @@ def next_sunday(offset: int = 1) -> date:
 
 
 def beyond_horizon() -> date:
-    """A working day past the 90-day limit, so the horizon rule is what fires."""
-    candidate = date.today() + timedelta(days=settings.max_advance_days + 1)
+    """A working day just past the window, so the horizon rule is what fires."""
+    candidate = date.today() + timedelta(days=settings.max_advance_days)
     while not is_working_day(candidate):
         candidate += timedelta(days=1)
     return candidate
@@ -185,8 +204,8 @@ def beyond_horizon() -> date:
 
 @pytest.fixture()
 def day() -> date:
-    """The default test date: a working day 30 days out."""
-    return working_day(30)
+    """The default test date: the next working day inside the booking window."""
+    return working_day(1)
 
 
 # ------------------------------------------------------------------ helpers

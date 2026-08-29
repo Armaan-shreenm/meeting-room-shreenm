@@ -18,17 +18,13 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import timedelta
-
-from psycopg2 import errorcodes
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core import messages
 from app.core import time as timeutil
-from app.core.errors import ConflictError, PermissionError_, ValidationError
+from app.core.errors import PermissionError_, ValidationError
 from app.models import (
     AttendeeResponse,
     Booking,
@@ -39,9 +35,6 @@ from app.models import (
     User,
 )
 from app.services import audit, notifications, permissions
-from app.services import availability as av
-from app.services.availability import Window
-from app.services.booking import build_conflict
 
 logger = logging.getLogger(__name__)
 
@@ -208,102 +201,12 @@ def _apply_attendees(
 
 
 # ---------------------------------------------------------------- no-show
-
-
-def no_show_available_from(booking: Booking):
-    """The earliest instant a room may be released as a no-show (D-06)."""
-    return booking.entry_time + timedelta(minutes=settings.no_show_release_minutes)
-
-
-def mark_no_show(db: Session, actor: User, booking: Booking) -> Booking:
-    """Release an unused room — D-06.
-
-    Reception or an administrator only, and no earlier than 15 minutes after the
-    meeting was due to start. Sets NO_SHOW, which frees the room immediately
-    because the exclusion constraint binds CONFIRMED rows. Audit-logged, and
-    deliberately **not** notified.
-    """
-    if not permissions.can_mark_no_show(actor):
-        raise PermissionError_(messages.CANNOT_MARK_NO_SHOW)
-
-    if booking.status != BookingStatus.CONFIRMED:
-        raise ValidationError(messages.ALREADY_CANCELLED)
-
-    available_from = no_show_available_from(booking)
-    if timeutil.now_utc() < available_from:
-        raise ValidationError(
-            messages.NO_SHOW_TOO_EARLY.format(
-                minutes=settings.no_show_release_minutes,
-                when=timeutil.format_clock(
-                    timeutil.minutes_from_midnight(available_from)
-                ),
-            )
-        )
-
-    before = audit.snapshot(booking)
-    booking.status = BookingStatus.NO_SHOW
-    db.flush()
-
-    audit.record(
-        db,
-        action=audit.NO_SHOW,
-        booking=booking,
-        actor=actor,
-        before=before,
-        after=audit.snapshot(booking),
-    )
-
-    # D-06 sends no notification. The audit row is the only record.
-    logger.info("Released booking %s as a no-show by %s", booking.id, actor.email)
-    return booking
-
-
-def restore_booking(db: Session, actor: User, booking: Booking) -> Booking:
-    """Undo a no-show, if the window is still free.
-
-    The freeness test is not a pre-check: the status is set back to CONFIRMED and
-    the exclusion constraint decides. Anything else would be a race — somebody
-    may have taken the room in between, which is the entire point of the room
-    having been released.
-    """
-    if not permissions.can_mark_no_show(actor):
-        raise PermissionError_(messages.CANNOT_MARK_NO_SHOW)
-
-    if booking.status != BookingStatus.NO_SHOW:
-        raise ValidationError(messages.NOT_A_NO_SHOW)
-
-    before = audit.snapshot(booking)
-    booking.status = BookingStatus.CONFIRMED
-
-    entry = timeutil.minutes_from_midnight(booking.entry_time)
-    exit_ = timeutil.minutes_from_midnight(booking.exit_time)
-    window = Window(entry, exit_)
-    room = booking.room
-    day = booking.booking_date
-
-    try:
-        db.flush()
-    except IntegrityError as exc:
-        db.rollback()
-        if getattr(exc.orig, "pgcode", None) == errorcodes.EXCLUSION_VIOLATION:
-            logger.info(
-                "Refused to restore booking %s: the window was taken", booking.id
-            )
-            raise build_conflict(db, room, day, window) from exc
-        raise
-
-    audit.record(
-        db,
-        action=audit.RESTORED,
-        booking=booking,
-        actor=actor,
-        before=before,
-        after=audit.snapshot(booking),
-    )
-
-    logger.info("Restored booking %s by %s", booking.id, actor.email)
-    return booking
-
+#
+# Removed. D-06 released an unused room after fifteen minutes, but only
+# reception or an administrator could do it, and privilege levels no longer
+# exist. Reinstating it means restoring a role in app.services.permissions and
+# the two endpoints in app.api.bookings. BookingStatus.NO_SHOW is still in the
+# schema, so no data migration is needed to bring it back.
 
 # -------------------------------------------------------- attendee response
 

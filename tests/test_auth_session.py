@@ -306,13 +306,14 @@ def booking(client, users, departments, rooms, day):
     return created.json()
 
 
-CANCEL_ALLOWED = ["rahul", "joseph", "reception", "admin"]
-CANCEL_REFUSED = ["priya", "imran", "neha", "sana"]
+# There are no privilege levels. Only the person who booked the room may cancel
+# or change it — not reception, not an administrator, not the conductor.
+CANCEL_ALLOWED = ["rahul"]
+CANCEL_REFUSED = ["joseph", "reception", "admin", "priya", "imran", "neha", "sana"]
 
 
 @pytest.mark.parametrize("handle", CANCEL_ALLOWED)
-def test_who_may_cancel(client, users, booking, handle):
-    """Booker, conductor, reception and admin — spec section 9."""
+def test_only_the_booker_may_cancel(client, users, booking, handle):
     response = client.post(
         f"/api/bookings/{booking['id']}/cancel", headers=headers_for(users[handle])
     )
@@ -320,8 +321,8 @@ def test_who_may_cancel(client, users, booking, handle):
 
 
 @pytest.mark.parametrize("handle", CANCEL_REFUSED)
-def test_who_may_not_cancel(client, users, booking, handle):
-    """Attendees and unrelated colleagues, even though the UI hides the button."""
+def test_everybody_else_is_refused_the_cancel(client, users, booking, handle):
+    """Including the conductor, reception and the administrator."""
     response = client.post(
         f"/api/bookings/{booking['id']}/cancel", headers=headers_for(users[handle])
     )
@@ -332,7 +333,7 @@ def test_who_may_not_cancel(client, users, booking, handle):
 
 
 @pytest.mark.parametrize("handle", CANCEL_ALLOWED)
-def test_who_may_edit(client, users, booking, handle):
+def test_only_the_booker_may_edit(client, users, booking, handle):
     response = client.patch(
         f"/api/bookings/{booking['id']}",
         json={"title": f"{TEST_TITLE_PREFIX} edited by {handle}"},
@@ -342,7 +343,7 @@ def test_who_may_edit(client, users, booking, handle):
 
 
 @pytest.mark.parametrize("handle", CANCEL_REFUSED)
-def test_who_may_not_edit(client, users, booking, handle):
+def test_everybody_else_is_refused_the_edit(client, users, booking, handle):
     response = client.patch(
         f"/api/bookings/{booking['id']}",
         json={"title": f"{TEST_TITLE_PREFIX} hijacked by {handle}"},
@@ -354,24 +355,16 @@ def test_who_may_not_edit(client, users, booking, handle):
     )
 
 
-@pytest.mark.parametrize("handle", ["reception", "admin"])
-def test_only_reception_and_admin_may_mark_a_no_show(client, users, booking, handle):
-    """The 15-minute rule bites first here, which still proves the role check."""
-    response = client.post(
-        f"/api/bookings/{booking['id']}/no-show", headers=headers_for(users[handle])
-    )
-    assert response.status_code == 400
-    assert "no-show" in response.json()["detail"]
-
-
-@pytest.mark.parametrize("handle", ["rahul", "joseph", "priya", "neha"])
-def test_nobody_else_may_mark_a_no_show(client, users, booking, handle):
-    """Not even the booker or the conductor — D-06 says reception or admin."""
-    response = client.post(
-        f"/api/bookings/{booking['id']}/no-show", headers=headers_for(users[handle])
-    )
-    assert response.status_code == 403
-    assert response.json()["detail"] == messages.CANNOT_MARK_NO_SHOW
+def test_the_role_column_grants_nothing(client, users, booking):
+    """users.role still exists and is still returned; it confers no privilege."""
+    for handle in ("reception", "admin"):
+        me = client.get("/api/me", headers=headers_for(users[handle])).json()
+        assert me["role"] in ("RECEPTION", "ADMIN")
+        seen = client.get(
+            f"/api/bookings/{booking['id']}", headers=headers_for(users[handle])
+        ).json()
+        assert seen["can_cancel"] is False, handle
+        assert seen["can_edit"] is False, handle
 
 
 def test_an_attendee_may_only_change_their_own_response(client, users, booking):
@@ -400,10 +393,10 @@ def test_a_non_attendee_cannot_respond(client, users, booking):
 def test_permission_flags_match_what_the_server_enforces(client, users, booking):
     """The frontend hides what these say; the server refuses it either way."""
     expected = {
-        "rahul": (True, True),
-        "joseph": (True, True),
-        "reception": (True, True),
-        "admin": (True, True),
+        "rahul": (True, True),      # booked it
+        "joseph": (False, False),   # only running it
+        "reception": (False, False),
+        "admin": (False, False),
         "priya": (False, False),
         "neha": (False, False),
     }

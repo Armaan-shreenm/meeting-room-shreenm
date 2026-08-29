@@ -641,9 +641,10 @@ def test_past_date_is_refused(client, users, departments, rooms):
     assert response.json()["detail"] == messages.DATE_PAST
 
 
-def test_ninety_one_days_ahead_is_refused(client, users, departments, rooms):
+def test_beyond_the_booking_window_is_refused(client, users, departments, rooms):
+    """The window is a week now: today and the next six days."""
     far = beyond_horizon()
-    assert (far - date.today()).days > settings.max_advance_days
+    assert (far - date.today()).days >= settings.max_advance_days
 
     response = post_booking(
         client,
@@ -657,7 +658,7 @@ def test_ninety_one_days_ahead_is_refused(client, users, departments, rooms):
     )
     assert response.status_code == 400
     assert response.json()["detail"] == messages.TOO_FAR_AHEAD.format(
-        days=settings.max_advance_days
+        days=settings.max_advance_days - 1
     )
 
 
@@ -813,9 +814,10 @@ def test_attendee_cannot_cancel_or_edit(client, users, departments, rooms, day):
     assert seen_by_attendee["can_edit"] is False
 
 
-def test_reception_may_cancel_anyones_booking(
+def test_reception_and_admin_have_no_special_rights(
     client, users, departments, rooms, day
 ):
+    """Privilege levels were removed: only the booker may cancel."""
     created = post_booking(
         client,
         users["rahul"],
@@ -832,7 +834,8 @@ def test_reception_may_cancel_anyones_booking(
         body = client.get(
             f"/api/bookings/{booking_id}", headers=headers_for(users[handle])
         ).json()
-        assert body["can_cancel"] is True, handle
+        assert body["can_cancel"] is False, handle
+        assert body["can_edit"] is False, handle
 
 
 def test_unknown_booking_id_is_polite(client, users):

@@ -73,7 +73,7 @@ def _validate_day(db: Session, day: date) -> None:
 
     if av.is_too_far_ahead(day):
         raise ValidationError(
-            messages.TOO_FAR_AHEAD.format(days=settings.max_advance_days)
+            messages.TOO_FAR_AHEAD.format(days=settings.max_advance_days - 1)
         )
 
 

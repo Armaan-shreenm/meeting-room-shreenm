@@ -100,10 +100,6 @@ def to_detail(booking: Booking, actor: User) -> BookingDetail:
         ],
         can_cancel=permissions.can_cancel(actor, booking),
         can_edit=permissions.can_edit(actor, booking),
-        can_mark_no_show=(
-            permissions.can_mark_no_show(actor)
-            and booking.status.value == "CONFIRMED"
-        ),
         can_respond=permissions.is_attendee(actor, booking),
     )
 
@@ -228,42 +224,6 @@ def update(
     )
 
     lifecycle.edit_booking(db, actor, booking, edit)
-    db.commit()
-    return to_detail(_load_booking(db, booking_id), actor)
-
-
-# ------------------------------------------------------------------ no-show
-
-
-@router.post(
-    "/bookings/{booking_id}/no-show",
-    response_model=BookingDetail,
-    summary="Release an unused room as a no-show",
-)
-def no_show(booking_id: str, actor: CurrentUser, db: DbSession) -> BookingDetail:
-    """Reception or admin, no earlier than 15 minutes after the start (D-06).
-
-    Frees the room immediately, is audit-logged, and sends no notification.
-    """
-    booking = _load_booking(db, booking_id)
-    lifecycle.mark_no_show(db, actor, booking)
-    db.commit()
-    return to_detail(_load_booking(db, booking_id), actor)
-
-
-@router.post(
-    "/bookings/{booking_id}/restore",
-    response_model=BookingDetail,
-    summary="Undo a no-show, if the window is still free",
-)
-def restore(booking_id: str, actor: CurrentUser, db: DbSession) -> BookingDetail:
-    """Put a released booking back to CONFIRMED.
-
-    Whether the window is still free is decided by the exclusion constraint, not
-    by a pre-check: the room was released, so somebody may have taken it.
-    """
-    booking = _load_booking(db, booking_id)
-    lifecycle.restore_booking(db, actor, booking)
     db.commit()
     return to_detail(_load_booking(db, booking_id), actor)
 

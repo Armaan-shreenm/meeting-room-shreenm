@@ -46,6 +46,20 @@ class Settings(BaseSettings):
     # Render's managed Postgres closes idle connections; recycle before it does.
     db_pool_recycle_seconds: int = 1800
 
+    # ---------------------------------------------------------- google sign-in
+    # Every employee has an @shreenm.com Google account, so Google is the only
+    # sign-in that will exist once the button is added to the page. The backend
+    # is complete; the frontend deliberately shows nothing yet.
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    # Must match the redirect URI registered in the Google Cloud console exactly.
+    google_redirect_uri: str = "http://localhost:8000/api/auth/google/callback"
+    # Only addresses in this domain may sign in. A personal gmail account that
+    # happens to be signed into the same browser is refused.
+    allowed_email_domain: str = "shreenm.com"
+    # Create a directory entry the first time somebody in the domain signs in.
+    google_auto_create_users: bool = True
+
     # -------------------------------------------------------------- security
     # Signs the session cookie. MUST be set in production - a rotated value logs
     # everyone out, and a leaked one lets anybody forge a session. Render
@@ -67,7 +81,10 @@ class Settings(BaseSettings):
     slot_minutes: int = 30
     min_booking_minutes: int = 30
     max_booking_minutes: int = 240
-    max_advance_days: int = 90
+    # How far ahead a room may be booked. Seven days: somebody standing in the
+    # office on the 1st can book up to and including the 8th... no - up to the
+    # 7th. today + 6 more days.
+    max_advance_days: int = 7
     # D-06: an unused room is released by reception after this long.
     no_show_release_minutes: int = 15
     # Monday=0 ... Sunday=6. D-03: Monday to Saturday working, Sunday closed.

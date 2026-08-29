@@ -17,7 +17,7 @@ prototype works in. Conversion to stored UTC happens only at the edges, in
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -110,9 +110,17 @@ def day_status(db: Session, day: date) -> DayStatus:
     return DayStatus(closed=False)
 
 
+def last_bookable_date() -> date:
+    """The last day that may be booked.
+
+    The window is ``max_advance_days`` days **including today**, so with 7 the
+    person standing in the office on the 1st can book the 7th and not the 8th.
+    """
+    return timeutil.local_today() + timedelta(days=settings.max_advance_days - 1)
+
+
 def is_too_far_ahead(day: date) -> bool:
-    """Spec field 2: today to today + 90 days."""
-    return (day - timeutil.local_today()).days > settings.max_advance_days
+    return day > last_bookable_date()
 
 
 # ---------------------------------------------------------------- queries

@@ -33,12 +33,13 @@ logger = logging.getLogger("scripts.seed")
 
 # The five rooms, in the order the grid shows them. colour_var is the CSS custom
 # property the approved frontend already uses for each room.
-ROOMS: tuple[tuple[str, str, int, str], ...] = (
-    ("spark", "Spark", 1, "--spark"),
-    ("power", "Power", 2, "--power"),
-    ("pulse", "Pulse", 3, "--pulse"),
-    ("ignite", "Ignite", 4, "--ignite"),
-    ("switch", "Switch", 5, "--switch"),
+# id, name, display order, colour variable, minimum sensible party size.
+ROOMS: tuple[tuple[str, str, int, str, int], ...] = (
+    ("spark", "Spark", 1, "--spark", 4),
+    ("power", "Power", 2, "--power", 7),
+    ("pulse", "Pulse", 3, "--pulse", 3),
+    ("ignite", "Ignite", 4, "--ignite", 2),
+    ("switch", "Switch", 5, "--switch", 2),
 )
 
 DEPARTMENTS: tuple[tuple[str, int], ...] = (
@@ -93,7 +94,7 @@ def seed_rooms(db: Session) -> None:
     """Insert or refresh the five rooms."""
     existing = {r.id: r for r in db.scalars(select(Room)).all()}
 
-    for room_id, name, order, colour_var in ROOMS:
+    for room_id, name, order, colour_var, min_people in ROOMS:
         room = existing.get(room_id)
         if room is None:
             db.add(
@@ -102,20 +103,23 @@ def seed_rooms(db: Session) -> None:
                     name=name,
                     display_order=order,
                     colour_var=colour_var,
+                    min_people=min_people,
                 )
             )
             logger.info("Seeding room %s", name)
             continue
 
         # Rooms are not user-editable, so the file is the source of truth.
-        if (room.name, room.display_order, room.colour_var) != (
+        if (room.name, room.display_order, room.colour_var, room.min_people) != (
             name,
             order,
             colour_var,
+            min_people,
         ):
             room.name = name
             room.display_order = order
             room.colour_var = colour_var
+            room.min_people = min_people
             logger.info("Updating room %s", name)
 
     db.flush()

@@ -252,19 +252,20 @@ def test_cancelling_twice_is_refused(client, users, booking):
 # =============================================================================
 
 
-@pytest.mark.parametrize("handle", ["reception", "admin"])
-def test_T11_reception_and_admin_may_cancel_anyones_booking(
-    client, users, booking, handle
-):
+@pytest.mark.parametrize("handle", ["reception", "admin", "priya", "imran", "neha"])
+def test_nobody_but_the_booker_may_cancel(client, users, booking, handle):
+    """Privilege levels are gone. Reception and admin have no special rights."""
     response = client.post(
         f"/api/bookings/{booking['id']}/cancel", headers=headers_for(users[handle])
     )
-    assert response.status_code == 200, response.text
-    assert response.json()["status"] == "CANCELLED"
+    assert response.status_code == 403, f"{handle}: {response.text}"
+    assert response.json()["detail"] == messages.CANNOT_CANCEL.format(
+        owner="Rahul Mehta"
+    )
 
 
 def test_T12_an_attendee_cannot_cancel(client, users, booking):
-    """Section 9: an attendee may only decline."""
+    """An attendee may only decline their own place."""
     response = client.post(
         f"/api/bookings/{booking['id']}/cancel", headers=headers_for(users["priya"])
     )
@@ -288,9 +289,10 @@ def test_an_unrelated_employee_cannot_cancel(client, users, booking):
     assert response.status_code == 403
 
 
-def test_the_conductor_may_cancel_even_if_someone_else_booked_it(
+def test_the_conductor_cannot_cancel_unless_they_booked_it(
     client, users, departments, rooms, day
 ):
+    """Running the meeting is not the same as having booked the room."""
     created = post_booking(
         client,
         users["rahul"],
@@ -305,7 +307,10 @@ def test_the_conductor_may_cancel_even_if_someone_else_booked_it(
         f"/api/bookings/{created.json()['id']}/cancel",
         headers=headers_for(users["joseph"]),
     )
-    assert response.status_code == 200
+    assert response.status_code == 403
+    assert response.json()["detail"] == messages.CANNOT_CANCEL.format(
+        owner="Rahul Mehta"
+    )
 
 
 # =============================================================================
@@ -378,166 +383,11 @@ def test_T13_cancelling_a_running_booking_releases_remaining_time(
 
 
 # =============================================================================
-# No-show — D-06
+# No-show — removed with the privilege levels
 # =============================================================================
-
-
-@pytest.fixture()
-def started_booking(db, users, departments, rooms, monkeypatch):
-    """A booking that started 20 minutes ago, with the clock frozen."""
-    day = working_day(21)
-    frozen_local = datetime.combine(day, datetime.min.time()).replace(
-        hour=13, minute=20, tzinfo=settings.timezone
-    )
-    monkeypatch.setattr(timeutil, "now_local", lambda: frozen_local)
-    monkeypatch.setattr(
-        timeutil, "now_utc", lambda: frozen_local.astimezone(timezone.utc)
-    )
-
-    row = Booking(
-        id=uuid.uuid4(),
-        room_id="ignite",
-        entry_time=timeutil.local_datetime(day, 13 * 60),
-        exit_time=timeutil.local_datetime(day, 15 * 60),
-        department_id=departments["Sales"].id,
-        conducted_by=users["rahul"].id,
-        booked_by=users["rahul"].id,
-        title=f"{TEST_TITLE_PREFIX} no-show candidate",
-        status=BookingStatus.CONFIRMED,
-    )
-    db.add(row)
-    db.commit()
-    return row, day, frozen_local
-
-
-def test_no_show_before_fifteen_minutes_is_refused(
-    client, db, users, departments, rooms, monkeypatch
-):
-    day = working_day(22)
-    # Only 5 minutes past the start.
-    frozen_local = datetime.combine(day, datetime.min.time()).replace(
-        hour=13, minute=5, tzinfo=settings.timezone
-    )
-    monkeypatch.setattr(timeutil, "now_local", lambda: frozen_local)
-    monkeypatch.setattr(
-        timeutil, "now_utc", lambda: frozen_local.astimezone(timezone.utc)
-    )
-
-    row = Booking(
-        id=uuid.uuid4(),
-        room_id="spark",
-        entry_time=timeutil.local_datetime(day, 13 * 60),
-        exit_time=timeutil.local_datetime(day, 14 * 60),
-        department_id=departments["Sales"].id,
-        conducted_by=users["rahul"].id,
-        booked_by=users["rahul"].id,
-        title=f"{TEST_TITLE_PREFIX} too early",
-        status=BookingStatus.CONFIRMED,
-    )
-    db.add(row)
-    db.commit()
-
-    response = client.post(
-        f"/api/bookings/{row.id}/no-show", headers=headers_for(users["reception"])
-    )
-    assert response.status_code == 400
-    assert response.json()["detail"] == messages.NO_SHOW_TOO_EARLY.format(
-        minutes=settings.no_show_release_minutes, when="1:15 pm"
-    )
-
-
-def test_reception_may_release_a_no_show_after_fifteen_minutes(
-    client, db, users, started_booking
-):
-    row, day, _ = started_booking
-
-    response = client.post(
-        f"/api/bookings/{row.id}/no-show", headers=headers_for(users["reception"])
-    )
-    assert response.status_code == 200
-    assert response.json()["status"] == "NO_SHOW"
-
-    # Audit-logged...
-    assert "NO_SHOW" in [a.action for a in audit_for(db, row.id)]
-    # ...and deliberately not notified.
-    assert logs_for(db, row.id) == []
-
-
-def test_only_reception_or_admin_may_mark_a_no_show(client, users, started_booking):
-    row, _, _ = started_booking
-    response = client.post(
-        f"/api/bookings/{row.id}/no-show", headers=headers_for(users["rahul"])
-    )
-    assert response.status_code == 403
-    assert response.json()["detail"] == messages.CANNOT_MARK_NO_SHOW
-
-
-def test_no_show_window_is_immediately_rebookable_by_anyone(
-    client, users, departments, rooms, started_booking
-):
-    """A released slot is bookable by anyone, including the original host."""
-    row, day, _ = started_booking
-
-    client.post(
-        f"/api/bookings/{row.id}/no-show", headers=headers_for(users["admin"])
-    )
-
-    taken = post_booking(
-        client,
-        users["neha"],
-        room_id="ignite",
-        day=day,
-        entry="14:00",
-        exit_="15:00",
-        department_id=departments["Marketing"].id,
-        conducted_by=users["neha"].id,
-    )
-    assert taken.status_code == 201, taken.text
-
-
-def test_restoring_a_no_show_is_refused_when_the_window_was_taken(
-    client, users, departments, rooms, started_booking
-):
-    """The exclusion constraint adjudicates; nothing is pre-checked and trusted."""
-    row, day, _ = started_booking
-
-    client.post(
-        f"/api/bookings/{row.id}/no-show", headers=headers_for(users["admin"])
-    )
-    stolen = post_booking(
-        client,
-        users["neha"],
-        room_id="ignite",
-        day=day,
-        entry="14:00",
-        exit_="15:00",
-        department_id=departments["Marketing"].id,
-        conducted_by=users["neha"].id,
-    )
-    assert stolen.status_code == 201
-
-    restored = client.post(
-        f"/api/bookings/{row.id}/restore", headers=headers_for(users["admin"])
-    )
-    assert restored.status_code == 409
-    assert "Ignite" in restored.json()["detail"]
-
-
-def test_restoring_a_no_show_succeeds_when_the_window_is_still_free(
-    client, db, users, started_booking
-):
-    row, _, _ = started_booking
-
-    client.post(
-        f"/api/bookings/{row.id}/no-show", headers=headers_for(users["admin"])
-    )
-    restored = client.post(
-        f"/api/bookings/{row.id}/restore", headers=headers_for(users["admin"])
-    )
-    assert restored.status_code == 200
-    assert restored.json()["status"] == "CONFIRMED"
-    assert "RESTORED" in [a.action for a in audit_for(db, row.id)]
-
+# D-06 released an unused room after fifteen minutes, but only reception or an
+# administrator could do it. Privilege levels no longer exist, so the endpoints
+# and their tests went with them. BookingStatus.NO_SHOW remains in the schema.
 
 # =============================================================================
 # Editing the details

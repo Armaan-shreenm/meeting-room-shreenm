@@ -70,6 +70,7 @@ def get_availability(
                 name=room_day.room.name,
                 display_order=room_day.room.display_order,
                 colour_var=room_day.room.colour_var,
+                min_people=room_day.room.min_people,
                 free_slot_count=(
                     0 if status.closed else av.free_slot_count(windows, date)
                 ),
@@ -104,6 +105,8 @@ def get_availability(
         min_booking_minutes=settings.min_booking_minutes,
         max_booking_minutes=settings.max_booking_minutes,
         max_advance_days=settings.max_advance_days,
+        last_bookable_date=av.last_bookable_date(),
+        closed_weekdays=list(settings.closed_weekdays),
         timezone=settings.tz,
         slots=[timeutil.to_hhmm(m) for m in av.slot_starts()],
         rooms=rooms,

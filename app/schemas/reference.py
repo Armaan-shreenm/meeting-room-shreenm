@@ -14,7 +14,10 @@ class RoomOut(BaseModel):
     name: str
     display_order: int
     colour_var: str = Field(
-        description="CSS custom property the approved frontend colours this room with."
+        description="CSS custom property the frontend colours this room with."
+    )
+    min_people: int = Field(
+        description="Smallest party this room suits. Advisory, never enforced."
     )
 
 

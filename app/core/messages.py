@@ -77,7 +77,7 @@ CONDUCTOR_REQUIRED = "Please say who is conducting the meeting."
 NOT_ON_SLOT_BOUNDARY = "Meetings start and end on the hour or the half hour."
 
 # Spec field 2: "Today to today + 90 days."
-TOO_FAR_AHEAD = "You can book up to {days} days ahead."
+TOO_FAR_AHEAD = "You can book today and the next {days} days only."
 
 # The chosen entry time is inside a window the room is already booked for.
 ENTRY_ALREADY_BOOKED = "{room} is already booked at {entry}. Pick another time."
@@ -98,7 +98,11 @@ ATTENDEE_NOT_IN_DIRECTORY = (
 )
 
 BAD_DATE = "That is not a date NM Meet understands. Use the date picker."
-BAD_TIME = "That is not a time NM Meet understands. Use the clock picker."
+BAD_TIME = "That is not a time NM Meet understands. Pick one of the times offered."
+
+# Advisory only, shown against a room on the picker. Never blocks a booking:
+# nobody verifies the headcount, so refusing on it would be theatre.
+ROOM_MIN_PEOPLE = "{room} should only be selected if you are {count} or more people."
 
 # Rate limiting. Section 10's rule applies: say what to do next.
 TOO_MANY_REQUESTS = (
@@ -114,20 +118,15 @@ UNEXPECTED_ERROR = (
 
 
 # =============================================================================
-# Permissions and lifecycle - spec section 9
+# Permissions and lifecycle
 # =============================================================================
-# The table names who may cancel. Editing the details follows the same list.
-# An attendee may only decline; they can never cancel or edit.
+# There are no privilege levels. Whoever booked a room is the only person who
+# can cancel or change it - not reception, not an administrator, not an
+# attendee. An attendee may only accept or decline their own place.
 
-CANNOT_CANCEL = (
-    "Only {owner}, whoever is conducting the meeting, reception or an "
-    "administrator can cancel this booking."
-)
+CANNOT_CANCEL = "Only {owner} booked this room, so only {owner} can cancel it."
 
-CANNOT_EDIT = (
-    "Only {owner}, whoever is conducting the meeting, reception or an "
-    "administrator can change this booking."
-)
+CANNOT_EDIT = "Only {owner} booked this room, so only {owner} can change it."
 
 ALREADY_CANCELLED = "That meeting was already cancelled."
 
@@ -141,18 +140,6 @@ IMMUTABLE_FIELDS = (
     "The room, the date and the time cannot be changed. Cancel this booking and "
     "make a new one."
 )
-
-# D-06: released by reception or an administrator, 15 minutes after the start.
-CANNOT_MARK_NO_SHOW = (
-    "Only reception or an administrator can release a room as a no-show."
-)
-
-NO_SHOW_TOO_EARLY = (
-    "A room can only be released as a no-show {minutes} minutes after the "
-    "meeting was due to start. Try again from {when}."
-)
-
-NOT_A_NO_SHOW = "That booking is not marked as a no-show."
 
 # An attendee responding to their own invitation.
 NOT_AN_ATTENDEE = "You are not on the attendee list for this meeting."
@@ -181,6 +168,29 @@ CSRF_FAILED = (
 )
 
 SIGNED_OUT = "You have been signed out."
+
+
+# =============================================================================
+# Google sign-in
+# =============================================================================
+
+GOOGLE_NOT_CONFIGURED = (
+    "Google sign-in is not set up yet. Ask IT to add the Google client details."
+)
+
+GOOGLE_WRONG_DOMAIN = (
+    "{email} is not a {domain} address. Sign in with your work Google account."
+)
+
+GOOGLE_FAILED = "Google could not confirm who you are. Try signing in again."
+
+GOOGLE_STATE_MISMATCH = (
+    "That sign-in link has expired. Start again from the sign-in page."
+)
+
+GOOGLE_EMAIL_UNVERIFIED = (
+    "Google has not verified {email}. Verify it with Google and try again."
+)
 
 ACTOR_UNKNOWN = (
     "{email} is not in the company directory. Ask reception or an administrator "

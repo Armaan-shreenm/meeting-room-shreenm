@@ -37,6 +37,7 @@ class RoomAvailability(BaseModel):
     name: str
     display_order: int
     colour_var: str
+    min_people: int
     free_slot_count: int = Field(
         description=(
             "Bookable slot starts left today. Slots inside an existing booking "
@@ -62,6 +63,12 @@ class AvailabilityResponse(BaseModel):
     min_booking_minutes: int
     max_booking_minutes: int
     max_advance_days: int
+    last_bookable_date: date_type = Field(
+        description="The furthest date that may be booked, inclusive."
+    )
+    closed_weekdays: list[int] = Field(
+        description="Monday=0 ... Sunday=6. Days the branch is shut every week."
+    )
     timezone: str
     slots: list[str] = Field(
         description='Every bookable start time, "09:00" through "19:30".'

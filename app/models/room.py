@@ -30,8 +30,11 @@ class Room(Base):
     id: Mapped[str] = mapped_column(String(16), primary_key=True)
     name: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    # The CSS custom property the approved frontend colours this room with.
+    # The CSS custom property the frontend colours this room with.
     colour_var: Mapped[str] = mapped_column(String(32), nullable=False)
+    # Advisory, not enforced: the form warns a small group off a large room.
+    # Refusing a booking over a headcount nobody verifies would be worse.
+    min_people: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
 
     bookings: Mapped[list["Booking"]] = relationship(back_populates="room")
 

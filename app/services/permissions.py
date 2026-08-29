@@ -1,54 +1,42 @@
-"""Who may do what — spec section 9.
+"""Who may do what.
 
-| Role                    | Can cancel        |
-| ----------------------- | ----------------- |
-| The person who booked it| Their own bookings|
-| The person conducting it| That meeting      |
-| Reception               | Any booking       |
-| Admin                   | Any booking       |
-| An attendee             | No — decline only |
+**There are no privilege levels.** Whoever books a room is the only person who
+can cancel or change it. Reception cannot, an administrator cannot, an attendee
+cannot. The one rule the business asked for is that nobody can cancel somebody
+else's booking, and that is the whole of it.
 
-Editing the details follows exactly the same list. An attendee may only change
-their own ``response_status``, never cancel and never edit.
-
-These predicates are the single source of truth. The frontend uses the flags on
-the booking detail to hide what a viewer cannot do; the server calls the same
-functions to refuse it regardless of what the frontend showed.
+``users.role`` still exists in the database and is still returned by the API,
+but nothing in this module reads it. It is left in place so that reinstating a
+front-desk role later is a change here rather than a migration. If you are
+reading this because you need reception to release a room, that is the file to
+change — and the endpoints that used to do it were removed, not disabled.
 """
 
 from __future__ import annotations
 
-from app.models import Booking, User, UserRole
-
-# Reception and admin act on any booking at the branch.
-PRIVILEGED_ROLES = frozenset({UserRole.RECEPTION, UserRole.ADMIN})
-
-
-def is_privileged(actor: User) -> bool:
-    """Reception or admin."""
-    return actor.role in PRIVILEGED_ROLES
+from app.models import Booking, User
 
 
 def is_owner(actor: User, booking: Booking) -> bool:
-    """Booked it, or is running it."""
-    return actor.id in (booking.booked_by, booking.conducted_by)
+    """Did this person make the booking?"""
+    return actor.id == booking.booked_by
 
 
 def can_cancel(actor: User, booking: Booking) -> bool:
-    """Spec section 9."""
-    return is_privileged(actor) or is_owner(actor, booking)
+    """Only the person who booked it."""
+    return is_owner(actor, booking)
 
 
 def can_edit(actor: User, booking: Booking) -> bool:
-    """Details only — room, date and time are never editable by anyone."""
-    return can_cancel(actor, booking)
+    """Details only, and only for the person who booked it.
 
-
-def can_mark_no_show(actor: User) -> bool:
-    """D-06: released by reception. Admin too, as they can do anything."""
-    return is_privileged(actor)
+    The room, the date and the time are never editable by anybody: changing
+    when or where a meeting happens is a cancellation and a fresh booking, so
+    that the exclusion constraint gets to adjudicate the new window.
+    """
+    return is_owner(actor, booking)
 
 
 def is_attendee(actor: User, booking: Booking) -> bool:
-    """On the attendee list, which is the only thing that lets them respond."""
+    """On the attendee list, which is what lets them accept or decline."""
     return any(attendee.user_id == actor.id for attendee in booking.attendees)

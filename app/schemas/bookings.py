@@ -99,10 +99,6 @@ class BookingDetail(BaseModel):
     can_edit: bool = Field(
         description="Whether the requesting user may change the details."
     )
-    can_mark_no_show: bool = Field(
-        default=False,
-        description="Reception and admin only, on a confirmed booking (D-06).",
-    )
     can_respond: bool = Field(
         default=False,
         description="Whether the requesting user is an attendee who may reply.",

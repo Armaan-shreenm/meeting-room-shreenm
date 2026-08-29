@@ -400,15 +400,15 @@ def test_T10_cancelling_frees_the_window_and_sends_notices(
     assert retaken.status_code == 201, retaken.text
 
 
-def test_T11_reception_cancels_someone_elses_booking(
+def test_T11_nobody_cancels_someone_elses_booking(
     client, users, departments, rooms, day
 ):
     """T-11. Reception cancels someone else's booking.
 
-    Expected: allowed, after the two-click confirm.
-
-    The two-click confirm is a frontend affordance and is checked by eye in
-    MANUAL-2; the API is what actually permits reception to do it.
+    **Superseded.** The specification gave reception that power; the business
+    has since removed privilege levels entirely, so nobody can cancel a booking
+    they did not make. This test records the new rule and the old expectation it
+    replaces, rather than being deleted and leaving T-11 unaccounted for.
     """
     created = post_booking(
         client,
@@ -425,8 +425,18 @@ def test_T11_reception_cancels_someone_elses_booking(
         f"/api/bookings/{created.json()['id']}/cancel",
         headers=headers_for(users["reception"]),
     )
-    assert response.status_code == 200, response.text
-    assert response.json()["status"] == "CANCELLED"
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == messages.CANNOT_CANCEL.format(
+        owner="Rahul Mehta"
+    )
+
+    # The person who booked it still can.
+    mine = client.post(
+        f"/api/bookings/{created.json()['id']}/cancel",
+        headers=headers_for(users["rahul"]),
+    )
+    assert mine.status_code == 200
+    assert mine.json()["status"] == "CANCELLED"
 
 
 def test_T12_an_attendee_is_shown_no_cancel_button_and_is_refused(
