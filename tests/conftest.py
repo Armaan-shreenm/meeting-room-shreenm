@@ -18,7 +18,7 @@ from sqlalchemy import delete, select
 from app.config import settings
 from app.database import SessionLocal
 from app.main import app
-from app.models import Booking, Department, Holiday, Room, User
+from app.models import AuditLog, Booking, Department, Holiday, Room, User
 
 # Every booking a test creates carries this, so cleanup can find them all.
 TEST_TITLE_PREFIX = "pytest"
@@ -35,7 +35,24 @@ def db():
 
 
 def _purge(session) -> None:
+    """Remove test bookings and everything hanging off them.
+
+    booking_attendees and notification_log cascade with the booking. audit_log
+    does not — it references the entity by id as text on purpose, so that the
+    record outlives what it describes — so those rows are removed by hand.
+    """
     session.rollback()
+
+    doomed = session.scalars(
+        select(Booking.id).where(Booking.title.like(f"{TEST_TITLE_PREFIX}%"))
+    ).all()
+    if doomed:
+        session.execute(
+            delete(AuditLog).where(
+                AuditLog.entity_id.in_([str(i) for i in doomed])
+            )
+        )
+
     session.execute(delete(Booking).where(Booking.title.like(f"{TEST_TITLE_PREFIX}%")))
     session.execute(delete(Holiday).where(Holiday.name.like(f"{TEST_TITLE_PREFIX}%")))
     session.commit()

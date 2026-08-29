@@ -102,6 +102,53 @@ BAD_TIME = "That is not a time NM Meet understands. Use the clock picker."
 
 
 # =============================================================================
+# Permissions and lifecycle - spec section 9
+# =============================================================================
+# The table names who may cancel. Editing the details follows the same list.
+# An attendee may only decline; they can never cancel or edit.
+
+CANNOT_CANCEL = (
+    "Only {owner}, whoever is conducting the meeting, reception or an "
+    "administrator can cancel this booking."
+)
+
+CANNOT_EDIT = (
+    "Only {owner}, whoever is conducting the meeting, reception or an "
+    "administrator can change this booking."
+)
+
+ALREADY_CANCELLED = "That meeting was already cancelled."
+
+CANNOT_CHANGE_CANCELLED = (
+    "That meeting was cancelled and can no longer be changed. Book it again "
+    "instead."
+)
+
+# Room, date and time are never editable - changing them is a cancel and re-book.
+IMMUTABLE_FIELDS = (
+    "The room, the date and the time cannot be changed. Cancel this booking and "
+    "make a new one."
+)
+
+# D-06: released by reception or an administrator, 15 minutes after the start.
+CANNOT_MARK_NO_SHOW = (
+    "Only reception or an administrator can release a room as a no-show."
+)
+
+NO_SHOW_TOO_EARLY = (
+    "A room can only be released as a no-show {minutes} minutes after the "
+    "meeting was due to start. Try again from {when}."
+)
+
+NOT_A_NO_SHOW = "That booking is not marked as a no-show."
+
+# An attendee responding to their own invitation.
+NOT_AN_ATTENDEE = "You are not on the attendee list for this meeting."
+
+BAD_RESPONSE = "Answer with ACCEPTED or DECLINED."
+
+
+# =============================================================================
 # Actor / authentication
 # =============================================================================
 # The specification does not describe authentication. These follow its rule.

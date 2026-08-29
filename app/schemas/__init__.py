@@ -6,16 +6,24 @@ from app.schemas.availability import (
     ExitCapResponse,
     RoomAvailability,
 )
-from app.schemas.bookings import AttendeeOut, BookingCreate, BookingDetail
+from app.schemas.bookings import (
+    AttendeeOut,
+    AttendeeResponseIn,
+    BookingCreate,
+    BookingDetail,
+    BookingUpdate,
+)
 from app.schemas.health import DatabaseHealth, HealthResponse
 from app.schemas.reference import DepartmentOut, DirectoryUserOut, RoomOut
 
 __all__ = [
     "AttendeeOut",
+    "AttendeeResponseIn",
     "AvailabilityResponse",
     "BookingCreate",
     "BookingDetail",
     "BookingOnGrid",
+    "BookingUpdate",
     "DatabaseHealth",
     "DepartmentOut",
     "DirectoryUserOut",

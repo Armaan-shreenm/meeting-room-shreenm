@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     default_meeting_title: str = "Meeting"
 
     # ---------------------------------------------------------- notifications
+    # Base URL used to build the "view or cancel this booking" link in every
+    # message (spec section 8). On Render set this to the service URL.
+    public_base_url: str = "http://localhost:8000"
     notifications_enabled: bool = False
     smtp_host: str = ""
     smtp_port: int = 587

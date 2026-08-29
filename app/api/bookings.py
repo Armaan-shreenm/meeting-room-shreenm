@@ -1,12 +1,12 @@
-"""Booking endpoints.
-
-Phase 2 creates and reads. Cancel, edit, no-show and attendee responses arrive in
-Phase 3.
+"""Booking endpoints — create, read, cancel, edit, no-show and attendee response.
 
 The acting user always comes from :data:`app.core.auth.CurrentUser`, never from
-the request body — section 9 decides what somebody may do by comparing them
+the request body. Section 9 decides what somebody may do by comparing them
 against ``booked_by`` and ``conducted_by``, and a body field would let a caller
 claim to be somebody else.
+
+Every one of these commits its own transaction, so the audit row and the
+notification log rows land with the change they describe or not at all.
 """
 
 from __future__ import annotations
@@ -23,10 +23,17 @@ from app.core import time as timeutil
 from app.core.auth import CurrentUser
 from app.core.errors import NotFoundError, ValidationError
 from app.database import get_db
-from app.models import Booking
-from app.schemas.bookings import AttendeeOut, BookingCreate, BookingDetail
-from app.services import permissions
+from app.models import AttendeeResponse, Booking, BookingAttendee, NotificationEvent, User
+from app.schemas.bookings import (
+    AttendeeOut,
+    AttendeeResponseIn,
+    BookingCreate,
+    BookingDetail,
+    BookingUpdate,
+)
+from app.services import audit, lifecycle, notifications, permissions
 from app.services.booking import BookingRequest, create_booking
+from app.services.lifecycle import BookingEdit
 
 router = APIRouter()
 
@@ -55,7 +62,7 @@ def _load_booking(db: Session, booking_id: str) -> Booking:
             selectinload(Booking.department),
             selectinload(Booking.conductor),
             selectinload(Booking.booker),
-            selectinload(Booking.attendees),
+            selectinload(Booking.attendees).selectinload(BookingAttendee.user),
         )
     )
     if booking is None:
@@ -63,7 +70,7 @@ def _load_booking(db: Session, booking_id: str) -> Booking:
     return booking
 
 
-def to_detail(booking: Booking, actor) -> BookingDetail:
+def to_detail(booking: Booking, actor: User) -> BookingDetail:
     """Shape a booking for the detail panel, including this viewer's rights."""
     return BookingDetail(
         id=str(booking.id),
@@ -93,7 +100,15 @@ def to_detail(booking: Booking, actor) -> BookingDetail:
         ],
         can_cancel=permissions.can_cancel(actor, booking),
         can_edit=permissions.can_edit(actor, booking),
+        can_mark_no_show=(
+            permissions.can_mark_no_show(actor)
+            and booking.status.value == "CONFIRMED"
+        ),
+        can_respond=permissions.is_attendee(actor, booking),
     )
+
+
+# ------------------------------------------------------------------ create
 
 
 @router.post(
@@ -113,8 +128,9 @@ def create(
 ) -> BookingDetail:
     """Validate, re-check inside the transaction, insert, let the database rule.
 
-    A 409 carries the section 5 message naming this room and the rooms still
-    free, or section 10's message when nothing is free at all.
+    On success every recipient in section 8 is notified BOOKED, and an audit row
+    is written. A 409 carries the section 5 message naming this room and the
+    rooms still free.
     """
     request = BookingRequest(
         room_id=payload.room_id,
@@ -129,6 +145,15 @@ def create(
     )
 
     booking = create_booking(db, actor, request)
+
+    audit.record(
+        db,
+        action=audit.CREATED,
+        booking=booking,
+        actor=actor,
+        after=audit.snapshot(booking),
+    )
+    notifications.notify(db, booking, NotificationEvent.BOOKED)
     db.commit()
 
     fresh = _load_booking(db, str(booking.id))
@@ -142,4 +167,129 @@ def create(
     summary="Booking detail panel payload",
 )
 def detail(booking_id: str, actor: CurrentUser, db: DbSession) -> BookingDetail:
+    return to_detail(_load_booking(db, booking_id), actor)
+
+
+# ------------------------------------------------------------------ cancel
+
+
+@router.post(
+    "/bookings/{booking_id}/cancel",
+    response_model=BookingDetail,
+    summary="Cancel a booking",
+)
+def cancel(booking_id: str, actor: CurrentUser, db: DbSession) -> BookingDetail:
+    """Free the room immediately and tell all five recipient groups.
+
+    The booking is marked CANCELLED and kept for the audit record; it is never
+    deleted. Cancelling a meeting that is already running is allowed and releases
+    the remaining time.
+    """
+    booking = _load_booking(db, booking_id)
+    lifecycle.cancel_booking(db, actor, booking)
+    db.commit()
+    return to_detail(_load_booking(db, booking_id), actor)
+
+
+# -------------------------------------------------------------------- edit
+
+
+@router.patch(
+    "/bookings/{booking_id}",
+    response_model=BookingDetail,
+    summary="Change a booking's details",
+)
+def update(
+    booking_id: str,
+    payload: BookingUpdate,
+    actor: CurrentUser,
+    db: DbSession,
+) -> BookingDetail:
+    """Details only — title, department, conductor, attendees, reception note.
+
+    Room, date and time are never editable; sending any of them is refused with
+    the instruction to cancel and re-book, so that the exclusion constraint gets
+    to adjudicate the new window.
+    """
+    provided = payload.model_fields_set
+
+    if provided & {"room_id", "date", "entry", "exit"}:
+        raise ValidationError(messages.IMMUTABLE_FIELDS)
+
+    booking = _load_booking(db, booking_id)
+
+    edit = BookingEdit(
+        title=payload.title,
+        department_id=payload.department_id,
+        conducted_by=payload.conducted_by,
+        attendee_ids=payload.attendee_ids,
+        reception_note=payload.reception_note,
+        reception_note_set="reception_note" in provided,
+    )
+
+    lifecycle.edit_booking(db, actor, booking, edit)
+    db.commit()
+    return to_detail(_load_booking(db, booking_id), actor)
+
+
+# ------------------------------------------------------------------ no-show
+
+
+@router.post(
+    "/bookings/{booking_id}/no-show",
+    response_model=BookingDetail,
+    summary="Release an unused room as a no-show",
+)
+def no_show(booking_id: str, actor: CurrentUser, db: DbSession) -> BookingDetail:
+    """Reception or admin, no earlier than 15 minutes after the start (D-06).
+
+    Frees the room immediately, is audit-logged, and sends no notification.
+    """
+    booking = _load_booking(db, booking_id)
+    lifecycle.mark_no_show(db, actor, booking)
+    db.commit()
+    return to_detail(_load_booking(db, booking_id), actor)
+
+
+@router.post(
+    "/bookings/{booking_id}/restore",
+    response_model=BookingDetail,
+    summary="Undo a no-show, if the window is still free",
+)
+def restore(booking_id: str, actor: CurrentUser, db: DbSession) -> BookingDetail:
+    """Put a released booking back to CONFIRMED.
+
+    Whether the window is still free is decided by the exclusion constraint, not
+    by a pre-check: the room was released, so somebody may have taken it.
+    """
+    booking = _load_booking(db, booking_id)
+    lifecycle.restore_booking(db, actor, booking)
+    db.commit()
+    return to_detail(_load_booking(db, booking_id), actor)
+
+
+# ---------------------------------------------------------------- response
+
+
+@router.post(
+    "/bookings/{booking_id}/response",
+    response_model=BookingDetail,
+    summary="Accept or decline your own invitation",
+)
+def respond(
+    booking_id: str,
+    payload: AttendeeResponseIn,
+    actor: CurrentUser,
+    db: DbSession,
+) -> BookingDetail:
+    """An attendee's own reply — record-keeping only.
+
+    Section 9: an attendee cannot cancel, only decline. No notification fires and
+    nothing on the grid changes.
+    """
+    booking = _load_booking(db, booking_id)
+    lifecycle.set_attendee_response(
+        db, actor, booking, AttendeeResponse(payload.response)
+    )
+    db.commit()
     return to_detail(_load_booking(db, booking_id), actor)

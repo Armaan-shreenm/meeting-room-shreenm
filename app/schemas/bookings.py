@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date as date_type
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -38,6 +39,36 @@ class BookingCreate(BaseModel):
     reception_note: str | None = None
 
 
+class BookingUpdate(BaseModel):
+    """PATCH /api/bookings/{id} — details only.
+
+    ``room_id``, ``date``, ``entry`` and ``exit`` are declared so that sending
+    one produces the specific "cancel and re-book" instruction rather than being
+    silently ignored. They are never applied.
+
+    Every other field is optional, and "not sent" differs from "sent as null":
+    omitting ``reception_note`` leaves it alone, sending ``null`` clears it.
+    """
+
+    title: str | None = Field(default=None, max_length=120)
+    department_id: int | None = None
+    conducted_by: int | None = None
+    attendee_ids: list[int] | None = None
+    reception_note: str | None = None
+
+    # Accepted only so they can be refused with a useful message.
+    room_id: str | None = None
+    date: date_type | None = None
+    entry: str | None = None
+    exit: str | None = None
+
+
+class AttendeeResponseIn(BaseModel):
+    """POST /api/bookings/{id}/response."""
+
+    response: Literal["ACCEPTED", "DECLINED", "PENDING"]
+
+
 class BookingDetail(BaseModel):
     """GET /api/bookings/{id} — the detail panel payload.
 
@@ -66,5 +97,13 @@ class BookingDetail(BaseModel):
         description="Whether the requesting user may cancel — spec section 9."
     )
     can_edit: bool = Field(
-        description="Whether the requesting user may edit the details."
+        description="Whether the requesting user may change the details."
+    )
+    can_mark_no_show: bool = Field(
+        default=False,
+        description="Reception and admin only, on a confirmed booking (D-06).",
+    )
+    can_respond: bool = Field(
+        default=False,
+        description="Whether the requesting user is an attendee who may reply.",
     )
