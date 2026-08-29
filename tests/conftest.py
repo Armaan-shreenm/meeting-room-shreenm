@@ -23,7 +23,7 @@ from app.core.security import (
     SESSION_COOKIE,
     issue_session,
 )
-from app.database import SessionLocal
+from app.database import SessionLocal, engine
 from app.main import app
 from app.models import AuditLog, Booking, Department, Holiday, Room, User
 
@@ -42,27 +42,43 @@ def db():
 
 
 def _purge(session) -> None:
-    """Remove test bookings and everything hanging off them.
+    """Empty the bookings table between tests.
+
+    It used to remove only rows titled "pytest...". That stopped working when
+    the booking form dropped its title field: every booking is now called
+    "Meeting", so a real one made in the browser looked like a test row to
+    nobody and silently collided with the fixtures. Clearing the table is the
+    honest version - and the guard in ``_refuse_to_run_against_production``
+    is what makes it safe.
 
     booking_attendees and notification_log cascade with the booking. audit_log
     does not - it references the entity by id as text on purpose, so that the
-    record outlives what it describes - so those rows are removed by hand.
+    record outlives what it describes - so those rows go first.
     """
     session.rollback()
-
-    doomed = session.scalars(
-        select(Booking.id).where(Booking.title.like(f"{TEST_TITLE_PREFIX}%"))
-    ).all()
-    if doomed:
-        session.execute(
-            delete(AuditLog).where(
-                AuditLog.entity_id.in_([str(i) for i in doomed])
-            )
-        )
-
-    session.execute(delete(Booking).where(Booking.title.like(f"{TEST_TITLE_PREFIX}%")))
+    session.execute(delete(AuditLog))
+    session.execute(delete(Booking))
     session.execute(delete(Holiday).where(Holiday.name.like(f"{TEST_TITLE_PREFIX}%")))
     session.commit()
+
+
+def _refuse_to_run_against_production() -> None:
+    """The suite empties the bookings table. Never let that touch production."""
+    if settings.is_production:
+        raise RuntimeError(
+            "Refusing to run the test suite with ENVIRONMENT=production: it "
+            "deletes every booking. Point DATABASE_URL at a development "
+            "database first."
+        )
+    host = str(engine.url.host or "")
+    if host not in ("", "localhost", "127.0.0.1", "::1"):
+        raise RuntimeError(
+            f"Refusing to run the test suite against {host}: it deletes every "
+            "booking, and that is not a local database."
+        )
+
+
+_refuse_to_run_against_production()
 
 
 @pytest.fixture(autouse=True)

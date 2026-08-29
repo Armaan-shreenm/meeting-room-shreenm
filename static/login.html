@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#17171C">
 <title>Sign in - NM Meet</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -15,8 +17,6 @@
   --page:#FAF8F5; --card:#FFFFFF; --sunk:#F2EFEA; --line:#E9E4DC;
   --dark:#17171C; --no:#D6452F;
   --r-sm:8px; --r:12px; --r-lg:18px;
-  --sh-2:0 4px 12px rgba(27,26,23,.07), 0 2px 4px rgba(27,26,23,.04);
-  --sh-3:0 18px 44px rgba(27,26,23,.12);
   --ease:cubic-bezier(.4,0,.2,1);
   --gut:20px;
 }
@@ -32,13 +32,13 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 
 .top{background:var(--dark);color:#F3F1EC}
 .topin{display:flex;align-items:center;gap:10px;padding:14px 0}
-.bolt{width:30px;height:30px;border-radius:9px;background:var(--brand);display:grid;place-items:center;
-  color:#241800;font-size:15px;font-weight:700;box-shadow:0 2px 10px rgba(245,163,0,.35)}
+.mark{height:26px;width:auto;display:block}
+.cardmark{height:46px;width:auto;display:block;margin-bottom:14px}
 .brand{font-weight:700;font-size:17px;letter-spacing:-.01em}
 
 main{flex:1;display:grid;place-items:center;padding:40px var(--gut)}
-.box{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);
-  width:min(400px,100%);box-shadow:var(--sh-3);overflow:hidden}
+.box{background:var(--card);border:1px solid var(--ink);border-radius:var(--r-lg);
+  width:min(400px,100%);overflow:hidden}
 .bh{padding:26px 26px 4px}
 .bh h1{margin:0;font-size:23px;font-weight:650;letter-spacing:-.02em}
 .bh p{margin:5px 0 0;font-size:14px;color:var(--muted)}
@@ -48,12 +48,13 @@ main{flex:1;display:grid;place-items:center;padding:40px var(--gut)}
 .f label{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:6px}
 .f input{width:100%;border:1.5px solid var(--line);border-radius:var(--r-sm);padding:12px 13px;
   font-size:15px;background:var(--card);transition:.16s var(--ease)}
-.f input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(245,163,0,.15)}
+.f input:focus{outline:none;border-color:var(--ink)}
 
-.go{width:100%;background:var(--brand);border-radius:var(--r);padding:13px;color:#241800;
-  font-weight:650;font-size:15px;box-shadow:0 2px 10px rgba(245,163,0,.32);transition:.18s var(--ease)}
-.go:hover:not(:disabled){background:#FFB524;transform:translateY(-1px);box-shadow:0 6px 18px rgba(245,163,0,.4)}
-.go:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.go{width:100%;background:var(--brand);border:1px solid var(--ink);border-radius:var(--r);
+  padding:13px;color:#241800;font-weight:650;font-size:15px;
+  transition:background .18s var(--ease)}
+.go:hover:not(:disabled){background:#FFB524}
+.go:disabled{opacity:.5;cursor:not-allowed}
 
 .err{border:1px solid #F3C9C0;background:#FFF5F3;border-left:3px solid var(--no);
   border-radius:var(--r-sm);padding:12px 14px;margin-bottom:16px;font-size:13.5px;color:#8C2A19;display:none}
@@ -65,7 +66,7 @@ main{flex:1;display:grid;place-items:center;padding:40px var(--gut)}
 .gbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
   border:1.5px solid var(--line);background:var(--card);border-radius:var(--r);padding:12px;
   font-size:15px;font-weight:600;transition:.18s var(--ease);text-decoration:none;color:var(--ink)}
-.gbtn:hover{background:var(--sunk);transform:translateY(-1px);box-shadow:var(--sh-2)}
+.gbtn:hover{background:var(--sunk);border-color:var(--ink-2)}
 .sep{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--muted);font-size:12px}
 .sep::before,.sep::after{content:"";flex:1;height:1px;background:var(--line)}
 
@@ -79,12 +80,13 @@ footer{padding:18px var(--gut);color:var(--muted);font-size:12.5px}
 <body>
 
 <header class="top"><div class="wrap"><div class="topin">
-  <span class="bolt">⌁</span><span class="brand">NM Meet</span>
+  <img class="mark" src="/logo.png" alt="Shree NM"><span class="brand">NM Meet</span>
 </div></div></header>
 
 <main>
   <form class="box" id="form" autocomplete="on">
     <div class="bh">
+      <img class="cardmark" src="/logo.png" alt="Shree NM">
       <h1>Sign in</h1>
       <p>Book a meeting room at the Mumbai branch.</p>
     </div>

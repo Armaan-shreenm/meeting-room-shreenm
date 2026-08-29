@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#17171C">
 <title>NM Meet - Mumbai</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -37,9 +39,6 @@
   --no:#D6452F;
 
   --r-sm:8px; --r:12px; --r-lg:18px; --r-xl:24px;
-  --sh-1:0 1px 2px rgba(27,26,23,.05);
-  --sh-2:0 4px 12px rgba(27,26,23,.07);
-  --sh-3:0 18px 44px rgba(27,26,23,.14);
   --ease:cubic-bezier(.4,0,.2,1);
   /* One box is one hour. A half-hour booking fills half of it. */
   --hour-h:62px; --time-w:70px; --gut:20px;
@@ -63,8 +62,7 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .top{background:var(--dark);color:#F3F1EC;position:sticky;top:0;z-index:30}
 .topin{display:flex;align-items:center;gap:12px;padding:14px 0}
 .logo{display:flex;align-items:center;gap:10px;min-width:0}
-.bolt{width:30px;height:30px;border-radius:9px;background:var(--brand);
-  display:grid;place-items:center;color:#241800;font-size:15px;font-weight:700;flex:none}
+.mark{height:26px;width:auto;flex:none;display:block}
 .brand{font-weight:700;font-size:17px;letter-spacing:-.01em;white-space:nowrap}
 .topin .sp{flex:1}
 .who{display:flex;align-items:center;gap:9px;min-width:0}
@@ -75,7 +73,7 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 /* ---------- toolbar ---------- */
 .bar{display:flex;align-items:center;gap:10px;padding:18px 0 14px;flex-wrap:wrap}
 .daynav{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);
-  border-radius:var(--r);padding:4px;box-shadow:var(--sh-1)}
+  border-radius:var(--r);padding:4px}
 .nav{width:34px;height:34px;border-radius:var(--r-sm);display:grid;place-items:center;
   color:var(--ink-2);font-size:17px;transition:.16s var(--ease)}
 .nav:hover:not(:disabled){background:var(--sunk);color:var(--ink)}
@@ -85,7 +83,7 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .dlbl span{display:block;font-size:11px;color:var(--muted);margin-top:1px}
 .dlbl span.is-today{color:var(--brand-600);font-weight:600}
 .tbtn{border:1px solid var(--line);background:var(--card);border-radius:var(--r);height:42px;padding:0 15px;
-  font-size:14px;font-weight:500;color:var(--ink-2);box-shadow:var(--sh-1);transition:.16s var(--ease)}
+  font-size:14px;font-weight:500;color:var(--ink-2);transition:.16s var(--ease)}
 .tbtn:hover:not(:disabled){background:var(--sunk)}
 .tbtn:disabled{opacity:.4;cursor:not-allowed}
 .bar .sp{flex:1}
@@ -97,7 +95,7 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 /* ---------- date picker ---------- */
 .datepick{position:relative}
 .dlbl{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-  box-shadow:var(--sh-1);padding:7px 15px;text-align:left;min-width:170px;
+  padding:7px 15px;text-align:left;min-width:170px;
   transition:.16s var(--ease)}
 .dlbl:hover{background:var(--sunk)}
 .dlbl[aria-expanded="true"]{border-color:var(--ink)}
@@ -109,8 +107,8 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .dlbl span.is-today{color:var(--brand-600);font-weight:600}
 
 .pop{position:absolute;top:calc(100% + 8px);left:0;z-index:35;width:288px;
-  background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);
-  box-shadow:var(--sh-3);padding:13px;
+  background:var(--card);border:1px solid var(--ink);border-radius:var(--r-lg);
+  padding:13px;
   opacity:0;visibility:hidden;transform:translateY(-6px) scale(.98);
   transition:.18s var(--ease)}
 .pop.on{opacity:1;visibility:visible;transform:none}
@@ -194,7 +192,7 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .veil.on{opacity:1;pointer-events:auto}
 .pan{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--card);z-index:50;
   transform:translateX(101%);transition:transform .32s var(--ease);
-  display:flex;flex-direction:column;box-shadow:var(--sh-3)}
+  display:flex;flex-direction:column;border-left:1px solid var(--ink)}
 .pan.on{transform:none}
 .ph{background:var(--dark);color:#F3F1EC;padding:18px 22px;display:flex;align-items:flex-start;gap:12px;flex:none}
 .ph h2{margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em}
@@ -301,7 +299,7 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .act:hover:not(:disabled){background:var(--sunk)}
 .act.go{flex:1;background:var(--brand);border-color:var(--ink);color:#241800}
 .act.go:hover:not(:disabled){background:#FFB524}
-.act.go:disabled{opacity:.42;cursor:not-allowed;box-shadow:none;transform:none}
+.act.go:disabled{opacity:.42;cursor:not-allowed}
 .act.kill{color:var(--no);border-color:#F0C6BD}
 .act.kill:hover{background:#FFF5F3}
 .act.kill.armed{background:var(--no);border-color:var(--no);color:#fff}
@@ -318,7 +316,7 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,16px) scale(.97);
   background:var(--dark);color:#F3F1EC;padding:13px 18px;border-radius:var(--r);font-size:14px;
   opacity:0;pointer-events:none;transition:.26s var(--ease);z-index:60;max-width:min(520px,92vw);
-  box-shadow:var(--sh-3);border-left:3px solid var(--brand);line-height:1.45}
+  border:1px solid var(--brand);line-height:1.45}
 .toast.on{opacity:1;transform:translate(-50%,0) scale(1)}
 .toast.bad{border-left-color:var(--no)}
 
@@ -362,7 +360,7 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 <div class="load" id="load"></div>
 
 <header class="top"><div class="wrap"><div class="topin">
-  <div class="logo"><span class="bolt">⌁</span><span class="brand">NM Meet</span></div>
+  <div class="logo"><img class="mark" src="/logo.png" alt="Shree NM"><span class="brand">NM Meet</span></div>
   <span class="sp"></span>
   <div class="who">
     <span class="whoname" id="who"></span>
