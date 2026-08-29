@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.auth import CurrentUser
 from app.database import get_db
 from app.models import Department, Room, User
 from app.schemas.reference import DepartmentOut, DirectoryUserOut, RoomOut
@@ -65,3 +66,25 @@ def list_directory(db: DbSession) -> list[DirectoryUserOut]:
         )
         for user in users
     ]
+
+
+@router.get(
+    "/me",
+    response_model=DirectoryUserOut,
+    summary="Who the caller is",
+)
+def whoami(actor: CurrentUser) -> DirectoryUserOut:
+    """The signed-in user.
+
+    The frontend calls this once at boot to learn its own identity, so that it
+    can mark a booking as the viewer's own and address later requests. Phase 5
+    replaces the header behind this with a real session; the endpoint does not
+    change.
+    """
+    return DirectoryUserOut(
+        id=actor.id,
+        full_name=actor.full_name,
+        email=actor.email,
+        department=actor.department.name if actor.department else None,
+        role=actor.role.value,
+    )
