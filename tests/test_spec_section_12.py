@@ -301,8 +301,10 @@ def test_T08_seven_pm_to_nine_pm_is_outside_working_hours(
         conducted_by=users["priya"].id,
     )
     assert response.status_code == 400
-    assert response.json()["detail"] == messages.OUTSIDE_HOURS
-    assert response.json()["detail"] == "Rooms can be booked between 9 am and 8 pm."
+    assert response.json()["detail"] == messages.outside_hours()
+    # The specification wrote "between 9 am and 8 pm"; office hours are now
+    # configurable and set to 10-7, so the sentence tracks them.
+    assert response.json()["detail"] == "Rooms can be booked between 10 am and 7 pm."
 
 
 def test_T09_booking_with_two_attendees_sends_five_notifications(
@@ -415,8 +417,8 @@ def test_T11_nobody_cancels_someone_elses_booking(
         users["rahul"],
         room_id="ignite",
         day=day,
-        entry="09:00",
-        exit_="10:00",
+        entry="17:00",
+        exit_="18:00",
         department_id=departments["Sales"].id,
         conducted_by=users["rahul"].id,
         title=f"{TEST_TITLE_PREFIX} T11",
@@ -454,8 +456,8 @@ def test_T12_an_attendee_is_shown_no_cancel_button_and_is_refused(
         users["rahul"],
         room_id="ignite",
         day=day,
-        entry="09:00",
-        exit_="10:00",
+        entry="17:00",
+        exit_="18:00",
         department_id=departments["Sales"].id,
         conducted_by=users["rahul"].id,
         attendee_ids=[users["priya"].id],

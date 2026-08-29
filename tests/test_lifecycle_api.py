@@ -298,8 +298,8 @@ def test_the_conductor_cannot_cancel_unless_they_booked_it(
         users["rahul"],
         room_id="pulse",
         day=day,
-        entry="09:00",
-        exit_="10:00",
+        entry="17:00",
+        exit_="18:00",
         department_id=departments["Finance"].id,
         conducted_by=users["joseph"].id,
     )

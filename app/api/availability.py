@@ -139,7 +139,7 @@ def get_exit_cap(
     if entry_minutes < settings.open_minutes or entry_minutes > (
         settings.close_minutes - settings.min_booking_minutes
     ):
-        raise ValidationError(messages.OUTSIDE_HOURS)
+        raise ValidationError(messages.outside_hours())
 
     if not av.is_on_slot_boundary(entry_minutes):
         raise ValidationError(messages.NOT_ON_SLOT_BOUNDARY)

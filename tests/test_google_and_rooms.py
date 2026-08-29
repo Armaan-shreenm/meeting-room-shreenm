@@ -53,8 +53,8 @@ def test_capacity_is_advisory_and_never_blocks_a_booking(
         json=booking_payload(
             room_id="power",
             day=day,
-            entry="09:00",
-            exit_="10:00",
+            entry="10:00",
+            exit_="11:00",
             department_id=departments["Sales"].id,
             conducted_by=users["rahul"].id,
             attendee_ids=[users["priya"].id],

@@ -29,8 +29,10 @@ TOO_SHORT = "The shortest booking is 30 minutes."
 # Longer than 4 hours
 TOO_LONG = "Four hours is the longest single booking. Split it into two."
 
-# Outside 09:00-20:00
-OUTSIDE_HOURS = "Rooms can be booked between 9 am and 8 pm."
+# Outside office hours. The specification wrote "between 9 am and 8 pm"; the
+# hours are now configurable, so the sentence is built from them rather than
+# going stale the moment somebody changes OPEN_TIME.
+OUTSIDE_HOURS_TEMPLATE = "Rooms can be booked between {open} and {close}."
 
 # Date is in the past
 DATE_PAST = "That date has passed."
@@ -221,6 +223,18 @@ _NUMBER_WORDS = {
     9: "nine",
     10: "ten",
 }
+
+
+def outside_hours() -> str:
+    """Section 10's wording, built from the configured office hours."""
+    # Imported here: config must not import messages.
+    from app.config import settings
+    from app.core.time import format_clock
+
+    return OUTSIDE_HOURS_TEMPLATE.format(
+        open=format_clock(settings.open_minutes),
+        close=format_clock(settings.close_minutes),
+    )
 
 
 def spell_count(count: int) -> str:

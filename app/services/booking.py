@@ -89,7 +89,7 @@ def _validate_window(entry: int, exit_: int) -> None:
         raise ValidationError(messages.TOO_LONG)
 
     if entry < settings.open_minutes or exit_ > settings.close_minutes:
-        raise ValidationError(messages.OUTSIDE_HOURS)
+        raise ValidationError(messages.outside_hours())
 
     if not av.is_on_slot_boundary(entry) or not av.is_on_slot_boundary(exit_):
         raise ValidationError(messages.NOT_ON_SLOT_BOUNDARY)

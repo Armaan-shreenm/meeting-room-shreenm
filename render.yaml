@@ -98,9 +98,9 @@ services:
 
       # ---- booking rules (spec sections 3 and 4, section 13 as settled) ------
       - key: OPEN_TIME
-        value: "09:00"
+        value: "10:00"
       - key: CLOSE_TIME
-        value: "20:00"
+        value: "19:00"
       - key: SLOT_MINUTES
         value: "30"
       - key: MIN_BOOKING_MINUTES

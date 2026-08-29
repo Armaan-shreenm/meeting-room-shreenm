@@ -76,8 +76,10 @@ class Settings(BaseSettings):
     branch_name: str = "Mumbai"
 
     # ------------------------------------------- booking rules, spec sections 3, 4, 13
-    open_time: time = time(9, 0)
-    close_time: time = time(20, 0)
+    # Office hours. Everything downstream reads these - the grid rows, the time
+    # tray, the validation and the 'Rooms can be booked between...' message.
+    open_time: time = time(10, 0)
+    close_time: time = time(19, 0)
     slot_minutes: int = 30
     min_booking_minutes: int = 30
     max_booking_minutes: int = 240

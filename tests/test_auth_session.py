@@ -421,8 +421,8 @@ def test_the_actor_comes_from_the_session_not_the_body(
         users["neha"],
         room_id="ignite",
         day=day,
-        entry="09:00",
-        exit_="10:00",
+        entry="10:00",
+        exit_="11:00",
         department_id=departments["Sales"].id,
         conducted_by=users["rahul"].id,
     )

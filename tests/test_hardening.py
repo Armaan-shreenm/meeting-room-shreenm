@@ -230,7 +230,7 @@ def test_summary_lists_the_days_bookings_grouped_by_room(
 ):
     for room_id, entry, exit_ in (
         ("power", "13:00", "15:00"),
-        ("pulse", "09:00", "10:00"),
+        ("pulse", "10:00", "11:00"),
     ):
         created = post_booking(
             client,
@@ -250,7 +250,7 @@ def test_summary_lists_the_days_bookings_grouped_by_room(
     assert "POWER" in message.body
     assert "PULSE" in message.body
     assert "1 pm to 3 pm" in message.body
-    assert "9 am to 10 am" in message.body
+    assert "10 am to 11 am" in message.body
     assert "2 meeting(s) in total." in message.body
     # Times are written the spec's way, never as 24-hour clock.
     assert "13:00" not in message.body

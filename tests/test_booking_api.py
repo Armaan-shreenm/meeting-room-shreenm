@@ -97,7 +97,7 @@ def test_T01_booked_window_is_blocked_on_that_room(
     assert power["bookings"][0]["entry"] == "13:00"
     assert power["bookings"][0]["exit"] == "15:00"
 
-    # 13:00, 13:30, 14:00 and 14:30 are gone from Power's 22 slots.
+    # 13:00, 13:30, 14:00 and 14:30 are gone from the day's slots.
     assert power["free_slot_count"] == len(av.slot_starts()) - 4
 
 
@@ -241,12 +241,12 @@ def test_exit_cap_without_a_following_booking_is_four_hours(
     client, users, rooms, day
 ):
     response = client.get(
-        f"/api/availability/exit-cap?room=pulse&date={day.isoformat()}&entry=09:00",
+        f"/api/availability/exit-cap?room=pulse&date={day.isoformat()}&entry=10:00",
         headers=headers_for(users["priya"]),
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["exit_cap"] == "13:00"  # 09:00 + 4h
+    assert body["exit_cap"] == "14:00"  # 10:00 + 4h
     assert body["limited_by"] == "max_length"
 
 
@@ -257,7 +257,7 @@ def test_exit_cap_near_closing_is_capped_by_closing_time(client, users, rooms, d
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["exit_cap"] == "20:00"
+    assert body["exit_cap"] == "19:00"
     assert body["limited_by"] == "closing_time"
 
 
@@ -453,7 +453,7 @@ def test_T08_outside_working_hours(client, users, departments, rooms, day):
         conducted_by=users["priya"].id,
     )
     assert response.status_code == 400
-    assert response.json()["detail"] == messages.OUTSIDE_HOURS
+    assert response.json()["detail"] == messages.outside_hours()
 
 
 def test_before_opening_is_refused(client, users, departments, rooms, day):
@@ -463,12 +463,12 @@ def test_before_opening_is_refused(client, users, departments, rooms, day):
         room_id="spark",
         day=day,
         entry="08:00",
-        exit_="09:00",
+        exit_="09:00",   # both before the 10 am opening
         department_id=departments["IT"].id,
         conducted_by=users["priya"].id,
     )
     assert response.status_code == 400
-    assert response.json()["detail"] == messages.OUTSIDE_HOURS
+    assert response.json()["detail"] == messages.outside_hours()
 
 
 def test_T15_quarter_past_is_not_a_slot_boundary(
@@ -670,14 +670,14 @@ def test_beyond_the_booking_window_is_refused(client, users, departments, rooms)
 def test_stored_times_are_utc_and_the_local_date_is_kept(
     client, db, users, departments, rooms, day
 ):
-    """A 09:00 Mumbai booking is stored as 03:30 UTC on the same date."""
+    """A 10:00 Mumbai booking is stored as 04:30 UTC on the same date."""
     created = post_booking(
         client,
         users["priya"],
         room_id="spark",
         day=day,
-        entry="09:00",
-        exit_="10:00",
+        entry="10:00",
+        exit_="11:00",
         department_id=departments["IT"].id,
         conducted_by=users["priya"].id,
     )
@@ -686,12 +686,12 @@ def test_stored_times_are_utc_and_the_local_date_is_kept(
     row = db.scalar(select(Booking).where(Booking.id == created.json()["id"]))
     utc_entry = row.entry_time.astimezone(timezone.utc)
 
-    assert (utc_entry.hour, utc_entry.minute) == (3, 30)
+    assert (utc_entry.hour, utc_entry.minute) == (4, 30)
     assert row.booking_date == day
-    assert timeutil.minutes_from_midnight(row.entry_time) == 9 * 60
+    assert timeutil.minutes_from_midnight(row.entry_time) == 10 * 60
 
     # And the API hands back local strings, never a UTC timestamp.
-    assert created.json()["entry"] == "09:00"
+    assert created.json()["entry"] == "10:00"
 
 
 def test_local_date_differs_from_utc_date_late_in_the_evening(monkeypatch):

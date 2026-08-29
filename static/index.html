@@ -99,6 +99,31 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .cta:hover{background:#FFB524;transform:translateY(-1px);box-shadow:0 6px 18px rgba(245,163,0,.4)}
 .cta:active{transform:translateY(0)}
 
+/* ---------- date picker ---------- */
+.datepick{position:relative}
+.dlbl{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:var(--sh-1);padding:7px 15px;text-align:left;min-width:170px;
+  transition:.16s var(--ease)}
+.dlbl:hover{background:var(--sunk);transform:translateY(-1px)}
+.dlbl[aria-expanded="true"]{border-color:var(--brand);box-shadow:0 0 0 3px rgba(245,163,0,.16)}
+.dlbl span.dlbl-t{display:flex;align-items:center;gap:7px}  /* .dlbl span sets display:block and would otherwise win on specificity */
+.dlbl b{font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap}
+.chev{color:var(--muted);flex:none;transition:transform .2s var(--ease)}
+.dlbl[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.dlbl span{display:block;font-size:11px;color:var(--muted);margin-top:1px}
+.dlbl span.is-today{color:var(--brand-600);font-weight:600}
+
+.pop{position:absolute;top:calc(100% + 8px);left:0;z-index:35;width:288px;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--sh-3);padding:13px;
+  opacity:0;visibility:hidden;transform:translateY(-6px) scale(.98);
+  transition:.18s var(--ease)}
+.pop.on{opacity:1;visibility:visible;transform:none}
+.pophead{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.pophead b{font-size:13.5px;font-weight:600}
+.popfoot{margin-top:9px;padding-top:9px;border-top:1px solid var(--line-2);
+  font-size:11.5px;color:var(--muted);line-height:1.4}
+
 /* ---------- closed-day banner ---------- */
 .banner{display:none;align-items:center;gap:10px;background:var(--brand-50);
   border:1px solid var(--brand-200);border-radius:var(--r);padding:12px 15px;
@@ -231,6 +256,12 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
   box-shadow:0 3px 10px rgba(245,163,0,.35)}
 .t:disabled{color:#C7C2B9;background:var(--sunk);border-color:var(--line-2);cursor:not-allowed}
 .t small{display:block;font-size:10px;font-weight:500;opacity:.7;margin-top:1px}
+/* A slot somebody already has. Not merely unavailable - it says who has it. */
+.t.taken{background:#FDF1EE;border-color:#F3C9C0;color:#B4593F;
+  text-decoration:line-through;text-decoration-color:rgba(180,89,63,.5)}
+.t.taken small{text-decoration:none;opacity:1;font-weight:600;color:#B4593F}
+.t.past{background:var(--sunk);border-color:var(--line-2);color:#C7C2B9}
+.t.past small{opacity:.8}
 .tsec{margin-bottom:16px}
 .tsec h4{margin:0 0 8px;font-size:11.5px;font-weight:600;letter-spacing:.06em;
   text-transform:uppercase;color:var(--muted)}
@@ -346,12 +377,27 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 
 <div class="wrap">
   <div class="bar">
-    <div class="daynav">
-      <button class="nav" id="prev" aria-label="Previous day">‹</button>
-      <div class="dlbl"><b id="dBig">—</b><span id="dSml"></span></div>
-      <button class="nav" id="next" aria-label="Next day">›</button>
+    <div class="datepick">
+      <button class="dlbl" id="dateBtn" aria-haspopup="dialog" aria-expanded="false">
+        <span class="dlbl-t"><b id="dBig">—</b>
+          <svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="3" stroke-linecap="round"
+               stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </span>
+        <span id="dSml"></span>
+      </button>
+      <div class="pop" id="pop" role="dialog" aria-label="Pick a date">
+        <div class="pophead">
+          <button class="nav" id="mPrev" aria-label="Previous month">‹</button>
+          <b id="mLabel"></b>
+          <button class="nav" id="mNext" aria-label="Next month">›</button>
+        </div>
+        <div class="calhead" id="popHead"></div>
+        <div class="calgrid" id="popGrid"></div>
+        <div class="popfoot" id="popFoot"></div>
+      </div>
     </div>
-    <button class="tbtn" id="today">Today</button>
+    <button class="tbtn" id="today">Go to today</button>
     <span class="sp"></span>
     <button class="cta" id="newBtn">＋ Book a room</button>
   </div>
@@ -527,9 +573,9 @@ function render(){
   sml.textContent=isToday(ds)?'Today':d.toLocaleDateString('en-IN',{year:'numeric'});
   sml.classList.toggle('is-today',isToday(ds));
 
-  document.getElementById('prev').disabled = ds<=iso(new Date());
-  document.getElementById('next').disabled = LAST_DATE ? ds>=LAST_DATE : false;
   document.getElementById('today').disabled = isToday(ds);
+  document.getElementById('dateBtn').setAttribute('aria-expanded',
+    document.getElementById('pop').classList.contains('on'));
   document.getElementById('hoursKey').textContent=
     `${t12(OPEN)} to ${t12(SHUT)} · ${STEP} minute steps`;
 
@@ -719,30 +765,37 @@ function step2(B){
 }
 
 /* --- steps 3 and 4: fixed time buttons, never a clock --- */
-function timeButtons(B,{values,chosen,okFn,onPick,emptyMsg,subLabel}){
+/* One flat tray, in order. No morning/afternoon/evening headings: the office
+   day is short enough to read at a glance, and grouping only added chrome. */
+function timeButtons(B,{values,chosen,okFn,onPick,emptyMsg,subLabel,stateOf}){
   if(!values.length){ B.innerHTML=`<div class="hint">${emptyMsg}</div>`; return; }
-  const groups=[['Morning',v=>v<12*60],['Afternoon',v=>v>=12*60&&v<17*60],['Evening',v=>v>=17*60]];
-  let html='';
-  groups.forEach(([label,test])=>{
-    const inGroup=values.filter(test);
-    if(!inGroup.length) return;
-    html+=`<div class="tsec"><h4>${label}</h4><div class="times">`+
-      inGroup.map(v=>`<button class="t" data-v="${v}" aria-pressed="${chosen===v}"
-        ${okFn(v)?'':'disabled'}>${t12(v)}${subLabel?`<small>${subLabel(v)}</small>`:''}</button>`).join('')+
-      `</div></div>`;
-  });
-  B.innerHTML=html;
+  B.innerHTML=`<div class="times">`+values.map(v=>{
+    const st=stateOf?stateOf(v):null;
+    const cls=st?` ${st.cls}`:'';
+    const sub=st&&st.note?st.note:(subLabel?subLabel(v):'');
+    return `<button class="t${cls}" data-v="${v}" aria-pressed="${chosen===v}"
+      ${okFn(v)?'':'disabled'}>${t12(v)}${sub?`<small>${sub}</small>`:''}</button>`;
+  }).join('')+`</div>`;
   B.querySelectorAll('.t:not([disabled])').forEach(b=>
     b.addEventListener('click',()=>onPick(+b.dataset.v)));
 }
 
 function step3(B){
   const r=room(W.room);
+  const taken=runsFor(W.room,W.date);
   timeButtons(B,{
     values:SLOTS.filter(v=>v<=SHUT-MINLEN),
     chosen:W.entry, okFn:entryOk,
     onPick:v=>{ W.entry=v; W.exit=null; W.cap=null; W.capFor=null; paintWiz(); },
-    emptyMsg:'Nothing is free on this day.'
+    emptyMsg:'Nothing is free on this day.',
+    /* A taken slot says so, and says whose it is. Greying alone leaves the
+       user guessing whether the room or the hour is the problem. */
+    stateOf:v=>{
+      const b=taken.find(x=>v>=x.s&&v<x.e);
+      if(b) return {cls:'taken',note:'Booked'};
+      if(isToday(W.date)&&v<nowM()) return {cls:'past',note:'Gone'};
+      return null;
+    }
   });
   const runs=runsFor(W.room,W.date);
   const hint=document.createElement('div');
@@ -924,11 +977,67 @@ function shut_(){
 }
 veil.addEventListener('click',shut_);
 document.querySelectorAll('[data-x]').forEach(b=>b.addEventListener('click',shut_));
-document.addEventListener('keydown',e=>{if(e.key==='Escape')shut_();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePop();shut_();}});
 
-document.getElementById('prev').addEventListener('click',()=>{cursor=addDays(cursor,-1);refresh();});
-document.getElementById('next').addEventListener('click',()=>{cursor=addDays(cursor,1);refresh();});
-document.getElementById('today').addEventListener('click',()=>{cursor=today();refresh();});
+/* ---------- toolbar date picker ----------
+   The arrows are gone. The date itself opens a month calendar, so somebody can
+   jump to any day and see what is booked on it - past days included, read only.
+   Booking is still limited to the window; the grid greys the rest. */
+let popMonth=new Date(cursor.getFullYear(),cursor.getMonth(),1);
+
+function paintPop(){
+  document.getElementById('mLabel').textContent=
+    popMonth.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+  document.getElementById('popHead').innerHTML=
+    ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<span>${d}</span>`).join('');
+
+  const y=popMonth.getFullYear(), mo=popMonth.getMonth();
+  const daysIn=new Date(y,mo+1,0).getDate();
+  const lead=(new Date(y,mo,1).getDay()+6)%7;
+  let html='';
+  for(let i=0;i<lead;i++) html+=`<button class="day pad" disabled></button>`;
+  for(let dn=1;dn<=daysIn;dn++){
+    const d=new Date(y,mo,dn), ds=iso(d);
+    const closed=weekendShut(ds);
+    const bookable=!closed&&!isPast(ds)&&!beyondWindow(ds);
+    html+=`<button class="day ${bookable?'free':''} ${closed?'shut':''}" data-d="${ds}"
+      aria-pressed="${iso(cursor)===ds}">${dn}${closed?'<em>Closed</em>':''}</button>`;
+  }
+  document.getElementById('popGrid').innerHTML=html;
+  document.getElementById('popFoot').textContent=
+    `Any date can be viewed. Booking is open until ${
+      LAST_DATE?fromIso(LAST_DATE).toLocaleDateString('en-IN',{day:'numeric',month:'short'}):'—'}.`;
+
+  document.getElementById('popGrid').querySelectorAll('.day[data-d]').forEach(b=>
+    b.addEventListener('click',()=>{
+      cursor=fromIso(b.dataset.d); closePop(); refresh();
+    }));
+}
+function openPop(){
+  popMonth=new Date(cursor.getFullYear(),cursor.getMonth(),1);
+  paintPop();
+  document.getElementById('pop').classList.add('on');
+  document.getElementById('dateBtn').setAttribute('aria-expanded','true');
+}
+function closePop(){
+  document.getElementById('pop').classList.remove('on');
+  document.getElementById('dateBtn').setAttribute('aria-expanded','false');
+}
+const popOpen=()=>document.getElementById('pop').classList.contains('on');
+
+document.getElementById('dateBtn').addEventListener('click',e=>{
+  e.stopPropagation(); popOpen()?closePop():openPop();
+});
+document.getElementById('mPrev').addEventListener('click',e=>{
+  e.stopPropagation(); popMonth=new Date(popMonth.getFullYear(),popMonth.getMonth()-1,1); paintPop();
+});
+document.getElementById('mNext').addEventListener('click',e=>{
+  e.stopPropagation(); popMonth=new Date(popMonth.getFullYear(),popMonth.getMonth()+1,1); paintPop();
+});
+document.getElementById('pop').addEventListener('click',e=>e.stopPropagation());
+document.addEventListener('click',()=>{ if(popOpen()) closePop(); });
+
+document.getElementById('today').addEventListener('click',()=>{cursor=today();closePop();refresh();});
 document.getElementById('newBtn').addEventListener('click',()=>startWizard({date:iso(cursor)}));
 document.getElementById('signout').addEventListener('click',async()=>{
   try{ await api('/auth/logout',{method:'POST'}); }catch(e){}
