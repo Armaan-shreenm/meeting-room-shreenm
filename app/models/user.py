@@ -1,4 +1,4 @@
-"""The company directory — spec field 6, field 7 and section 9."""
+"""The company directory - spec field 6, field 7 and section 9."""
 
 from __future__ import annotations
 
@@ -7,11 +7,9 @@ from typing import TYPE_CHECKING
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
-from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.models.enums import USER_ROLE_ENUM, UserRole
 
 if TYPE_CHECKING:
     from app.models.booking import Booking, BookingAttendee
@@ -21,8 +19,8 @@ if TYPE_CHECKING:
 class User(Base):
     """A directory member.
 
-    D-04 settled: only directory members may conduct a meeting, so this table is
-    the whole permitted set for the "conducted by" and "attendees" fields.
+    There are no roles. Everybody is an ordinary user: anyone may book a room,
+    and only the person who booked one may cancel it.
     """
 
     __tablename__ = "users"
@@ -32,11 +30,6 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(254), nullable=False, unique=True)
     department_id: Mapped[int | None] = mapped_column(
         ForeignKey("departments.id", ondelete="RESTRICT"), nullable=True
-    )
-    role: Mapped[UserRole] = mapped_column(
-        PgEnum(UserRole, name=USER_ROLE_ENUM, create_type=False),
-        nullable=False,
-        default=UserRole.EMPLOYEE,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 

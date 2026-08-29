@@ -36,7 +36,7 @@ from app.core.security import (
     verify_password,
 )
 from app.database import get_db
-from app.models import User, UserRole
+from app.models import User
 from app.schemas.reference import DirectoryUserOut
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,6 @@ def _as_directory_user(user: User) -> DirectoryUserOut:
         full_name=user.full_name,
         email=user.email,
         department=user.department.name if user.department else None,
-        role=user.role.value,
     )
 
 
@@ -103,7 +102,7 @@ def login(
     response.set_cookie(SESSION_COOKIE, issue_session(user.id), **session_cookie_kwargs())
     response.set_cookie(CSRF_COOKIE, generate_csrf_token(), **csrf_cookie_kwargs())
 
-    logger.info("Signed in %s (%s)", user.email, user.role.value)
+    logger.info("Signed in %s", user.email)
     return _as_directory_user(user)
 
 
@@ -181,7 +180,6 @@ def _find_or_create(db: Session, identity: google_oauth.GoogleIdentity) -> User:
         full_name=identity.full_name,
         email=identity.email,
         department_id=None,
-        role=UserRole.EMPLOYEE,
         is_active=True,
         password_hash=None,
     )

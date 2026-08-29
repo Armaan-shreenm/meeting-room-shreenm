@@ -1,4 +1,4 @@
-"""Booking endpoints — create, read, cancel, edit, no-show and attendee response.
+"""Booking endpoints - create, read, cancel, edit, no-show and attendee response.
 
 The acting user always comes from :data:`app.core.auth.CurrentUser`, never from
 the request body. Section 9 decides what somebody may do by comparing them
@@ -201,7 +201,7 @@ def update(
     actor: CurrentUser,
     db: DbSession,
 ) -> BookingDetail:
-    """Details only — title, department, conductor, attendees, reception note.
+    """Details only - title, department, conductor, attendees, reception note.
 
     Room, date and time are never editable; sending any of them is refused with
     the instruction to cancel and re-book, so that the exclusion constraint gets
@@ -242,7 +242,7 @@ def respond(
     actor: CurrentUser,
     db: DbSession,
 ) -> BookingDetail:
-    """An attendee's own reply — record-keeping only.
+    """An attendee's own reply - record-keeping only.
 
     Section 9: an attendee cannot cancel, only decline. No notification fires and
     nothing on the grid changes.

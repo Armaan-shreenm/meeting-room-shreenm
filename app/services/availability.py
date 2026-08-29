@@ -1,4 +1,4 @@
-"""Availability — spec sections 1, 4 and 5.
+"""Availability - spec sections 1, 4 and 5.
 
 The rule that matters most: **availability is always per room, never global.**
 If Power is booked 1 pm to 3 pm, that window is unavailable for Power and fully
@@ -6,7 +6,7 @@ available for Spark, Pulse, Ignite and Switch.
 
 Two bookings clash when all three are true: same room, same date, and the times
 overlap, where overlap means ``new.entry < existing.exit AND new.exit >
-existing.entry``. The strict comparisons are what make back-to-back legal — a
+existing.entry``. The strict comparisons are what make back-to-back legal - a
 meeting ending at 15:00 does not clash with one starting at 15:00.
 
 Everything here works in minutes from local midnight, which is what the approved
@@ -184,7 +184,7 @@ def is_window_free(windows: list[Window], candidate: Window) -> bool:
 
 
 def free_slot_count(windows: list[Window], day: date) -> int:
-    """How many slot starts are still bookable — the prototype's freeCountFor.
+    """How many slot starts are still bookable - the prototype's freeCountFor.
 
     Slots inside an existing booking do not count. On a past date nothing counts,
     and today the slots that have already gone do not count either.
@@ -203,7 +203,7 @@ def free_slot_count(windows: list[Window], day: date) -> int:
 
 
 def exit_cap(windows: list[Window], entry: int) -> int:
-    """Latest permitted exit for an entry — the prototype's capAfter().
+    """Latest permitted exit for an entry - the prototype's capAfter().
 
     ``min(next booking start, entry + max length, closing time)``. Section 4's
     worked example: Power free from 12:00 but booked from 13:00, an entry of
@@ -232,7 +232,7 @@ def free_rooms_for_window(
 ) -> list[Room]:
     """Which rooms are free for this exact window, in display order.
 
-    Used to build the section 5 message. Never hardcoded — a room is listed only
+    Used to build the section 5 message. Never hardcoded - a room is listed only
     if the database says it is actually free.
     """
     free: list[Room] = []

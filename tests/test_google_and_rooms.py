@@ -47,7 +47,7 @@ def test_capacity_is_advisory_and_never_blocks_a_booking(
     client, users, departments, rooms, day
 ):
     """Two people may book Power. Nobody verifies a headcount, so refusing on
-    one would be theatre — the note warns, the server allows."""
+    one would be theatre - the note warns, the server allows."""
     response = client.post(
         "/api/bookings",
         json=booking_payload(

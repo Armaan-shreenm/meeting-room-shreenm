@@ -8,7 +8,7 @@ Two implementations:
 
 * :class:`StdoutTransport` (in ``notifications``) renders the whole message to
   stdout. That is what runs when SMTP is not configured, and it is not a
-  degraded mode — on Render the log stream is a real, greppable record.
+  degraded mode - on Render the log stream is a real, greppable record.
 * :class:`SmtpTransport` here sends real mail.
 
 Selection is by configuration alone, in :func:`configure_transport`. Nothing else

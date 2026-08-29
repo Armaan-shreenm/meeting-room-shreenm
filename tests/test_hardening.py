@@ -1,4 +1,4 @@
-"""Phase 7 — rate limiting, request ids, error handling and the daily summary."""
+"""Phase 7 - rate limiting, request ids, error handling and the daily summary."""
 
 from __future__ import annotations
 

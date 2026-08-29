@@ -1,4 +1,4 @@
-"""Departments — spec field 5."""
+"""Departments - spec field 5."""
 
 from __future__ import annotations
 

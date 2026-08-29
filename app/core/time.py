@@ -1,11 +1,11 @@
-"""Time conversion and formatting — the boundary between the API and storage.
+"""Time conversion and formatting - the boundary between the API and storage.
 
 Three representations exist and this module is the only place they meet:
 
-* **Storage** — aware ``datetime`` in UTC, in ``timestamptz`` columns.
-* **The API** — an ISO date plus ``"HH:MM"`` local strings. The frontend never
+* **Storage** - aware ``datetime`` in UTC, in ``timestamptz`` columns.
+* **The API** - an ISO date plus ``"HH:MM"`` local strings. The frontend never
   sees a UTC timestamp and never does timezone arithmetic.
-* **Messages** — "1 pm", "1:30 pm", the way the specification writes times.
+* **Messages** - "1 pm", "1:30 pm", the way the specification writes times.
   :func:`format_clock` is the one formatter; nothing else may format a time.
 
 Internally the day is handled as minutes from local midnight, which is what the
@@ -83,7 +83,7 @@ def booking_date_for(entry_time: datetime) -> date:
 
     This is the single source of truth for that column. ``booking_date`` is the
     branch-local calendar day the meeting starts on, which is the day the grid
-    groups by — and it is not the UTC day. A booking that starts at 19:00 UTC is
+    groups by - and it is not the UTC day. A booking that starts at 19:00 UTC is
     already the next morning in Mumbai.
 
     A CHECK constraint cannot enforce the relationship, because ``AT TIME ZONE``

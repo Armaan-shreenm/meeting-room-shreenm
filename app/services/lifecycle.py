@@ -1,4 +1,4 @@
-"""What happens to a booking after it exists — spec sections 8, 9 and 11.
+"""What happens to a booking after it exists - spec sections 8, 9 and 11.
 
 Cancel, edit the details, release a no-show, restore one, and record an
 attendee's own response. Creation lives in :mod:`app.services.booking`.
@@ -56,7 +56,7 @@ class BookingEdit:
 
 
 def cancel_booking(db: Session, actor: User, booking: Booking) -> Booking:
-    """Cancel a booking — spec section 9.
+    """Cancel a booking - spec section 9.
 
     Permitted for the booker, the conductor, reception and admin. An attendee is
     refused: they may only decline their own place.
@@ -98,7 +98,7 @@ def cancel_booking(db: Session, actor: User, booking: Booking) -> Booking:
 
 
 def edit_booking(db: Session, actor: User, booking: Booking, edit: BookingEdit) -> Booking:
-    """Change the details of a booking — never its room, date or time.
+    """Change the details of a booking - never its room, date or time.
 
     Fires CHANGED. Attendee churn is reported per person: someone newly added is
     told BOOKED, someone removed is told CANCELLED, everyone else CHANGED.
@@ -214,7 +214,7 @@ def _apply_attendees(
 def set_attendee_response(
     db: Session, actor: User, booking: Booking, response: AttendeeResponse
 ) -> BookingAttendee:
-    """An attendee accepting or declining their own place — spec section 9.
+    """An attendee accepting or declining their own place - spec section 9.
 
     Record-keeping only: no notification fires and nothing on the grid changes.
     An attendee can only ever change their own row.

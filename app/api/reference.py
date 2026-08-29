@@ -1,4 +1,4 @@
-"""Reference data endpoints — rooms, departments and the directory.
+"""Reference data endpoints - rooms, departments and the directory.
 
 These three fill the pickers the booking wizard is built from. They are read-only
 in every phase: rooms and departments are seeded, and the directory is
@@ -62,7 +62,6 @@ def list_directory(db: DbSession, actor: CurrentUser) -> list[DirectoryUserOut]:
             full_name=user.full_name,
             email=user.email,
             department=user.department.name if user.department else None,
-            role=user.role.value,
         )
         for user in users
     ]

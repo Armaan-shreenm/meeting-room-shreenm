@@ -1,7 +1,7 @@
 """Engine, session factory and declarative base.
 
 One engine per process. Render runs a single worker on a cold start, so the pool
-is small and every connection is checked before use — a free-tier Postgres will
+is small and every connection is checked before use - a free-tier Postgres will
 drop idle connections and a stale one must not surface as a request failure.
 """
 

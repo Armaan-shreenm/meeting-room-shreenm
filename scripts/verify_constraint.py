@@ -1,7 +1,7 @@
 """Prove the double-booking guarantee against a real PostgreSQL.
 
 Spec section 7 names three layers and says only the third is a guarantee. This
-script tests the third one — the ``no_double_booking`` EXCLUDE constraint — by
+script tests the third one - the ``no_double_booking`` EXCLUDE constraint - by
 asking the database to store overlapping rows and requiring it to refuse.
 
 An overlap must be rejected as ``psycopg2.errors.ExclusionViolation`` and nothing
@@ -142,7 +142,7 @@ def check_extension(db: Session) -> bool:
     return record(
         "1. btree_gist present in pg_extension",
         bool(present),
-        "" if present else "Extension missing — the constraint cannot exist.",
+        "" if present else "Extension missing - the constraint cannot exist.",
     )
 
 
@@ -156,7 +156,7 @@ def check_constraint(db: Session) -> bool:
     return record(
         "2. no_double_booking present in pg_constraint",
         definition is not None,
-        definition or "Constraint missing — nothing prevents a double booking.",
+        definition or "Constraint missing - nothing prevents a double booking.",
     )
 
 
@@ -166,36 +166,36 @@ def check_constraint(db: Session) -> bool:
 def check_overlaps(db: Session, room: str, other_room: str, dept: int, user: int) -> bool:
     ok = True
 
-    # 3 — the anchor booking.
+    # 3 - the anchor booking.
     anchor = make_booking(room, at(13), at(15), dept, user)
     insert(db, anchor)
     ok &= record(f"3. {room} 13:00-15:00 inserted", True)
 
-    # 4 — a genuine overlap must be refused by the database.
+    # 4 - a genuine overlap must be refused by the database.
     clash = make_booking(room, at(14), at(16), dept, user)
     error_text = expect_exclusion_violation(db, clash)
     ok &= record(
         f"4. {room} 14:00-16:00 REJECTED as overlap",
         error_text is not None,
-        error_text or "ACCEPTED — the constraint did not fire. Stop and fix this.",
+        error_text or "ACCEPTED - the constraint did not fire. Stop and fix this.",
     )
 
-    # 5 — ends exactly when the anchor starts. Spec section 5, T-03.
+    # 5 - ends exactly when the anchor starts. Spec section 5, T-03.
     before = make_booking(room, at(12), at(13), dept, user)
     insert(db, before)
     ok &= record(f"5. {room} 12:00-13:00 inserted (back to back, ends at 13:00)", True)
 
-    # 6 — starts exactly when the anchor ends. Spec section 5, T-04.
+    # 6 - starts exactly when the anchor ends. Spec section 5, T-04.
     after = make_booking(room, at(15), at(16), dept, user)
     insert(db, after)
     ok &= record(f"6. {room} 15:00-16:00 inserted (back to back, starts at 15:00)", True)
 
-    # 7 — same window, different room. Spec section 1, T-02.
+    # 7 - same window, different room. Spec section 1, T-02.
     elsewhere = make_booking(other_room, at(13), at(15), dept, user)
     insert(db, elsewhere)
     ok &= record(f"7. {other_room} 13:00-15:00 inserted (different room, same window)", True)
 
-    # 8 — cancelling releases the window, because the constraint is scoped to
+    # 8 - cancelling releases the window, because the constraint is scoped to
     # CONFIRMED. Spec section 9 point 4.
     anchor.status = BookingStatus.CANCELLED
     db.flush()
@@ -287,7 +287,7 @@ def main() -> int:
     print(f"{passed}/{total} checks passed.")
 
     if exit_code:
-        print("\nFAILED — do not build booking logic on this schema.")
+        print("\nFAILED - do not build booking logic on this schema.")
     else:
         print("\nAll checks passed. The database refuses double bookings.")
 

@@ -3,13 +3,13 @@
 Sessions are stateless: the cookie carries the user id, signed with
 ``SECRET_KEY`` by itsdangerous and stamped with an age. Nothing is kept in
 memory, which matters because Render runs a single worker that is stopped and
-restarted freely — a server-side session store would log everyone out on every
+restarted freely - a server-side session store would log everyone out on every
 cold start, and a dict would not survive one either.
 
 The cookie is HttpOnly so script cannot read it, SameSite=Lax so it is not sent
 on a cross-site POST, and Secure in production. Because SameSite=Lax is not a
 complete defence on its own, state-changing requests also carry a CSRF token in
-a header, checked against a second cookie — the double-submit pattern. That
+a header, checked against a second cookie - the double-submit pattern. That
 second cookie is deliberately readable by script; it has to be, for the page to
 echo it back.
 """

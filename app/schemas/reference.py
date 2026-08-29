@@ -1,4 +1,4 @@
-"""Reference data the booking form is built from — rooms, departments, directory."""
+"""Reference data the booking form is built from - rooms, departments, directory."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class RoomOut(BaseModel):
-    """A meeting room. Name only — spec field 1 forbids seats and equipment."""
+    """A meeting room. Name only - spec field 1 forbids seats and equipment."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -40,4 +40,3 @@ class DirectoryUserOut(BaseModel):
     department: str | None = Field(
         default=None, description="Department name, or null if unassigned."
     )
-    role: str

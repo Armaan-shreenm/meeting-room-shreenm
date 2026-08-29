@@ -27,7 +27,7 @@ from app.config import settings
 from app.core.logging import configure_logging
 from app.core.security import generate_password, hash_password
 from app.database import SessionLocal
-from app.models import Department, Room, User, UserRole
+from app.models import Department, Room, User
 
 logger = logging.getLogger("scripts.seed")
 
@@ -53,21 +53,20 @@ DEPARTMENTS: tuple[tuple[str, int], ...] = (
 
 EMAIL_DOMAIN = "shreenm.com"
 
-# The eight directory members from the approved prototype, plus the front desk
-# and one administrator. The directory is admin-maintained: there is no HR sync,
-# so this list is the starting point and the ADMIN user is who edits it after.
-# Department assignments are settled: every department including HR has a member.
-DIRECTORY: tuple[tuple[str, str, str, UserRole], ...] = (
-    ("Priya Nair", "priya.nair", "IT", UserRole.EMPLOYEE),
-    ("Rahul Mehta", "rahul.mehta", "Sales", UserRole.EMPLOYEE),
-    ("Sana Qureshi", "sana.qureshi", "Operations", UserRole.EMPLOYEE),
-    ("Vikram Rao", "vikram.rao", "Sales", UserRole.EMPLOYEE),
-    ("Aditi Shah", "aditi.shah", "HR", UserRole.EMPLOYEE),
-    ("Imran Sheikh", "imran.sheikh", "IT", UserRole.EMPLOYEE),
-    ("Neha Kulkarni", "neha.kulkarni", "Marketing", UserRole.EMPLOYEE),
-    ("Joseph Dsouza", "joseph.dsouza", "Finance", UserRole.EMPLOYEE),
-    ("Reception Mumbai", "reception.mumbai", "Operations", UserRole.RECEPTION),
-    ("IT Admin", "admin", "IT", UserRole.ADMIN),
+# The starting directory. There are no roles: everybody here is an ordinary
+# user who can book a room and cancel their own bookings. Once Google Sign-In is
+# switched on, anybody with an @shreenm.com address is added on first sign-in.
+DIRECTORY: tuple[tuple[str, str, str], ...] = (
+    ("Priya Nair", "priya.nair", "IT"),
+    ("Rahul Mehta", "rahul.mehta", "Sales"),
+    ("Sana Qureshi", "sana.qureshi", "Operations"),
+    ("Vikram Rao", "vikram.rao", "Sales"),
+    ("Aditi Shah", "aditi.shah", "HR"),
+    ("Imran Sheikh", "imran.sheikh", "IT"),
+    ("Neha Kulkarni", "neha.kulkarni", "Marketing"),
+    ("Joseph Dsouza", "joseph.dsouza", "Finance"),
+    ("Reception Mumbai", "reception.mumbai", "Operations"),
+    ("IT Admin", "admin", "IT"),
 )
 
 
@@ -136,7 +135,7 @@ def seed_users(db: Session, departments: dict[str, Department]) -> None:
     existing_emails = set(db.scalars(select(User.email)).all())
     issued: list[tuple[str, str]] = []
 
-    for full_name, local_part, department_name, role in DIRECTORY:
+    for full_name, local_part, department_name in DIRECTORY:
         email = f"{local_part}@{EMAIL_DOMAIN}"
         if email in existing_emails:
             continue
@@ -147,13 +146,12 @@ def seed_users(db: Session, departments: dict[str, Department]) -> None:
                 full_name=full_name,
                 email=email,
                 department_id=departments[department_name].id,
-                role=role,
                 is_active=True,
                 password_hash=hash_password(password),
             )
         )
         issued.append((email, password))
-        logger.info("Seeding user %s <%s> as %s", full_name, email, role.value)
+        logger.info("Seeding user %s <%s>", full_name, email)
 
     db.flush()
 

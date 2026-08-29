@@ -1,4 +1,4 @@
-"""The five meeting rooms — spec section 1.
+"""The five meeting rooms - spec section 1.
 
 Rooms are seeded, never created by a user. The id is the lowercase room name and
 is what the availability rules and the EXCLUDE constraint key on.
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class Room(Base):
     """Spark, Power, Pulse, Ignite or Switch.
 
-    Spec field 1: rooms are shown by name only — no seat count and no equipment
+    Spec field 1: rooms are shown by name only - no seat count and no equipment
     list, so neither is stored.
     """
 

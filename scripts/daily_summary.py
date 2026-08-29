@@ -1,4 +1,4 @@
-"""Send the Mumbai branch group its daily 8 am summary — decision D-01.
+"""Send the Mumbai branch group its daily 8 am summary - decision D-01.
 
 Section 8 lists the branch distribution list as a recipient of every booking.
 D-01 settles that it gets one summary a day instead, because a mail per booking

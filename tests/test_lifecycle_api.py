@@ -1,4 +1,4 @@
-"""Phase 3 — cancel, edit, no-show, attendee response and notifications.
+"""Phase 3 - cancel, edit, no-show, attendee response and notifications.
 
 Covers T09, T10, T11, T12 and T13 from spec section 12, plus the no-show timing
 rule and the immediate re-bookability of a released window.
@@ -79,14 +79,14 @@ def booking(client, users, departments, rooms, day):
 
 
 # =============================================================================
-# T-09 — notifications on booking
+# T-09 - notifications on booking
 # =============================================================================
 
 
 def test_T09_two_attendees_produce_five_notifications(db, booking):
     """Two attendees, the conductor, reception and the Mumbai group.
 
-    Rahul is both booker and conductor here, so he is one recipient, not two —
+    Rahul is both booker and conductor here, so he is one recipient, not two - 
     which is exactly the five the specification's test case counts.
     """
     rows = logs_for(db, booking["id"])
@@ -176,7 +176,7 @@ def test_audit_row_written_on_create(db, booking):
 
 
 # =============================================================================
-# T-10 — cancelling frees the window and notifies
+# T-10 - cancelling frees the window and notifies
 # =============================================================================
 
 
@@ -203,7 +203,7 @@ def test_T10_cancel_frees_the_window_and_notifies(
     ]
     assert len(cancel_rows) == 5
 
-    # Never deleted — kept for the audit record.
+    # Never deleted - kept for the audit record.
     row = db.scalar(select(Booking).where(Booking.id == uuid.UUID(booking["id"])))
     assert row is not None
     assert row.status == BookingStatus.CANCELLED
@@ -248,7 +248,7 @@ def test_cancelling_twice_is_refused(client, users, booking):
 
 
 # =============================================================================
-# T-11 / T-12 — who may cancel
+# T-11 / T-12 - who may cancel
 # =============================================================================
 
 
@@ -314,7 +314,7 @@ def test_the_conductor_cannot_cancel_unless_they_booked_it(
 
 
 # =============================================================================
-# T-13 — cancelling a running meeting releases the remaining time
+# T-13 - cancelling a running meeting releases the remaining time
 # =============================================================================
 
 
@@ -383,7 +383,7 @@ def test_T13_cancelling_a_running_booking_releases_remaining_time(
 
 
 # =============================================================================
-# No-show — removed with the privilege levels
+# No-show - removed with the privilege levels
 # =============================================================================
 # D-06 released an unused room after fifteen minutes, but only reception or an
 # administrator could do it. Privilege levels no longer exist, so the endpoints
@@ -517,7 +517,7 @@ def test_an_attendee_may_accept_or_decline_their_own_place(
     )
     assert priya["response_status"] == "DECLINED"
 
-    # Aditi is untouched — an attendee changes only their own row.
+    # Aditi is untouched - an attendee changes only their own row.
     aditi = next(
         a for a in response.json()["attendees"] if a["full_name"] == "Aditi Shah"
     )

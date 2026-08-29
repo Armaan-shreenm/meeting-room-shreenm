@@ -57,7 +57,7 @@ def refs(db):
     department = db.scalar(select(Department).order_by(Department.id))
     user = db.scalar(select(User).order_by(User.id))
     if not all((room, department, user)):
-        pytest.skip("Reference data missing — run `python -m scripts.seed` first.")
+        pytest.skip("Reference data missing - run `python -m scripts.seed` first.")
     return room, department, user
 
 
@@ -100,7 +100,7 @@ def test_booking_date_for_1900_utc_is_next_day_in_mumbai():
 
 
 def test_booking_date_for_1829_utc_is_still_the_same_day():
-    """18:29 UTC is 23:59 IST — the last minute that stays on the same date."""
+    """18:29 UTC is 23:59 IST - the last minute that stays on the same date."""
     entry = datetime(2098, 3, 10, 18, 29, tzinfo=timezone.utc)
     assert booking_date_for(entry) == date(2098, 3, 10)
 

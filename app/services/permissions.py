@@ -5,11 +5,10 @@ can cancel or change it. Reception cannot, an administrator cannot, an attendee
 cannot. The one rule the business asked for is that nobody can cancel somebody
 else's booking, and that is the whole of it.
 
-``users.role`` still exists in the database and is still returned by the API,
-but nothing in this module reads it. It is left in place so that reinstating a
-front-desk role later is a change here rather than a migration. If you are
-reading this because you need reception to release a room, that is the file to
-change — and the endpoints that used to do it were removed, not disabled.
+There is no ``role`` column any more either: migration 0004 dropped it. If a
+front-desk role is ever wanted back, it is a new column, a new enum and a change
+here - which is a smaller job than keeping a column nothing reads and everybody
+has to reason about.
 """
 
 from __future__ import annotations

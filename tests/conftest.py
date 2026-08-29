@@ -45,8 +45,8 @@ def _purge(session) -> None:
     """Remove test bookings and everything hanging off them.
 
     booking_attendees and notification_log cascade with the booking. audit_log
-    does not — it references the entity by id as text on purpose, so that the
-    record outlives what it describes — so those rows are removed by hand.
+    does not - it references the entity by id as text on purpose, so that the
+    record outlives what it describes - so those rows are removed by hand.
     """
     session.rollback()
 

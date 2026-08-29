@@ -9,7 +9,7 @@ The weekly Sunday closure is NOT stored here. It is computed from
 Putting every Sunday in this table would be tens of rows a year describing a rule
 that is one line of code.
 
-CSV format — a header row is optional and skipped if present:
+CSV format - a header row is optional and skipped if present:
 
     date,name
     2027-01-26,Republic Day

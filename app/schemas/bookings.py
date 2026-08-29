@@ -40,7 +40,7 @@ class BookingCreate(BaseModel):
 
 
 class BookingUpdate(BaseModel):
-    """PATCH /api/bookings/{id} — details only.
+    """PATCH /api/bookings/{id} - details only.
 
     ``room_id``, ``date``, ``entry`` and ``exit`` are declared so that sending
     one produces the specific "cancel and re-book" instruction rather than being
@@ -70,7 +70,7 @@ class AttendeeResponseIn(BaseModel):
 
 
 class BookingDetail(BaseModel):
-    """GET /api/bookings/{id} — the detail panel payload.
+    """GET /api/bookings/{id} - the detail panel payload.
 
     Carries the permission flags so the frontend can hide what this viewer may
     not do. The server refuses the action regardless of what the frontend shows.
@@ -94,7 +94,7 @@ class BookingDetail(BaseModel):
     status: str
     attendees: list[AttendeeOut]
     can_cancel: bool = Field(
-        description="Whether the requesting user may cancel — spec section 9."
+        description="Whether the requesting user may cancel - spec section 9."
     )
     can_edit: bool = Field(
         description="Whether the requesting user may change the details."

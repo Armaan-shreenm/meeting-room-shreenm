@@ -1,4 +1,4 @@
-"""Google Sign-In — the OAuth 2.0 / OpenID Connect exchange.
+"""Google Sign-In - the OAuth 2.0 / OpenID Connect exchange.
 
 Every employee has an ``@shreenm.com`` Google account, so this is intended to
 become the only way into NM Meet. **The backend here is complete.** The page
@@ -10,8 +10,8 @@ The flow, and why each piece is there:
 1. ``/api/auth/google/start`` mints a random ``state`` and a PKCE ``code_verifier``,
    stores both in a short-lived signed cookie, and redirects to Google.
 2. The user authenticates with Google. Google redirects back with a ``code``.
-3. ``/api/auth/google/callback`` checks ``state`` matches the cookie — that is
-   what stops somebody feeding a victim a login link of their own choosing —
+3. ``/api/auth/google/callback`` checks ``state`` matches the cookie - that is
+   what stops somebody feeding a victim a login link of their own choosing - 
    then exchanges the code, sending the ``code_verifier`` so an intercepted
    code is useless without it.
 4. The returned ``id_token`` is verified **cryptographically** against Google's
@@ -20,8 +20,8 @@ The flow, and why each piece is there:
 5. The email must be verified by Google and inside the allowed domain. A
    personal gmail account signed into the same browser is refused by name.
 6. A directory entry is created if this is their first sign-in, and the same
-   session cookie the password login issues is set. Everything downstream —
-   ``get_current_user``, permissions, CSRF — is unchanged.
+   session cookie the password login issues is set. Everything downstream - 
+   ``get_current_user``, permissions, CSRF - is unchanged.
 """
 
 from __future__ import annotations

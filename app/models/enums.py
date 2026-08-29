@@ -9,14 +9,6 @@ from __future__ import annotations
 import enum
 
 
-class UserRole(str, enum.Enum):
-    """Who may cancel what — spec section 9."""
-
-    EMPLOYEE = "EMPLOYEE"
-    RECEPTION = "RECEPTION"
-    ADMIN = "ADMIN"
-
-
 class BookingStatus(str, enum.Enum):
     """Spec section 11.
 
@@ -42,7 +34,7 @@ class AttendeeResponse(str, enum.Enum):
 
 
 class NotificationEvent(str, enum.Enum):
-    """The three events that trigger a mail — spec section 8.
+    """The three events that trigger a mail - spec section 8.
 
     CHANGED fires on a details-only edit: title, department, conducted_by,
     attendees or the reception note. Room, date and time are never editable, so
@@ -64,7 +56,6 @@ class NotificationStatus(str, enum.Enum):
 
 # Names of the PostgreSQL enum types. The initial migration creates these by
 # hand, so the names have to agree between the models and the migration.
-USER_ROLE_ENUM = "user_role"
 BOOKING_STATUS_ENUM = "booking_status"
 ATTENDEE_RESPONSE_ENUM = "attendee_response"
 NOTIFICATION_EVENT_ENUM = "notification_event"

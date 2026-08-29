@@ -1,4 +1,4 @@
-"""Bookings and their attendees — spec section 11.
+"""Bookings and their attendees - spec section 11.
 
 ``entry_time`` and ``exit_time`` are timestamptz in UTC. ``booking_date`` is the
 calendar day the booking falls on in the branch timezone, which is the day the
@@ -24,8 +24,8 @@ The half-open range is what makes a meeting ending at 15:00 and one starting at
 
 A booking's room, date and times are never editable. Changing when or where a
 meeting happens is a cancellation and a fresh booking, so that the exclusion
-constraint re-adjudicates it. Only the details — title, department, conducted_by,
-attendees and the reception note — may be edited, and that raises CHANGED.
+constraint re-adjudicates it. Only the details - title, department, conducted_by,
+attendees and the reception note - may be edited, and that raises CHANGED.
 """
 
 from __future__ import annotations
@@ -153,7 +153,7 @@ class Booking(Base):
 
 
 class BookingAttendee(Base):
-    """A colleague invited to a booking — spec field 7.
+    """A colleague invited to a booking - spec field 7.
 
     Section 9: an attendee cannot cancel the meeting, only decline their place,
     which is what ``response_status`` records.
@@ -201,7 +201,7 @@ def _enforce_booking_date(booking: Booking) -> None:
 
     A booking with no date yet gets the derived one, so the column cannot be
     forgotten. A booking that already carries a date must agree with it, or the
-    flush is refused — silently correcting it would hide the bug that produced
+    flush is refused - silently correcting it would hide the bug that produced
     the wrong value.
     """
     if booking.entry_time is None:

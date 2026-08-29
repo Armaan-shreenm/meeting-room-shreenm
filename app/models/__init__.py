@@ -11,12 +11,10 @@ from app.models.enums import (
     BOOKING_STATUS_ENUM,
     NOTIFICATION_EVENT_ENUM,
     NOTIFICATION_STATUS_ENUM,
-    USER_ROLE_ENUM,
     AttendeeResponse,
     BookingStatus,
     NotificationEvent,
     NotificationStatus,
-    UserRole,
 )
 from app.models.holiday import Holiday
 from app.models.logs import AuditLog, NotificationLog
@@ -28,7 +26,6 @@ __all__ = [
     "BOOKING_STATUS_ENUM",
     "NOTIFICATION_EVENT_ENUM",
     "NOTIFICATION_STATUS_ENUM",
-    "USER_ROLE_ENUM",
     "AttendeeResponse",
     "AuditLog",
     "Booking",
@@ -42,5 +39,4 @@ __all__ = [
     "NotificationStatus",
     "Room",
     "User",
-    "UserRole",
 ]

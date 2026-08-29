@@ -1,9 +1,9 @@
-"""Spec section 12 — the fifteen QA cases, named T01 to T15.
+"""Spec section 12 - the fifteen QA cases, named T01 to T15.
 
 "Hand these to QA as written. Each must pass before sign-off."
 
 This file is that hand-off. Each test carries the specification's own wording as
-its docstring, and asserts the specification's stated expectation — not a
+its docstring, and asserts the specification's stated expectation - not a
 paraphrase of it, and not merely a status code. A 400 carrying "Booking failed"
 would satisfy a status-only assertion and would still be a defect, so every
 rejection is compared against the exact string from ``app.core.messages``.

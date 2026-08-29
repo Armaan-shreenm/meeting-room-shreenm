@@ -1,4 +1,4 @@
-# NM Meet — pinned runtime dependencies (Python 3.11)
+# NM Meet - pinned runtime dependencies (Python 3.11)
 
 fastapi==0.115.6
 uvicorn[standard]==0.34.0

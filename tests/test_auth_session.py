@@ -1,4 +1,4 @@
-"""Phase 5 — sessions, CSRF and role enforcement.
+"""Phase 5 - sessions, CSRF and role enforcement.
 
 Two things are being proved here.
 
@@ -307,7 +307,7 @@ def booking(client, users, departments, rooms, day):
 
 
 # There are no privilege levels. Only the person who booked the room may cancel
-# or change it — not reception, not an administrator, not the conductor.
+# or change it - not reception, not an administrator, not the conductor.
 CANCEL_ALLOWED = ["rahul"]
 CANCEL_REFUSED = ["joseph", "reception", "admin", "priya", "imran", "neha", "sana"]
 
@@ -355,11 +355,11 @@ def test_everybody_else_is_refused_the_edit(client, users, booking, handle):
     )
 
 
-def test_the_role_column_grants_nothing(client, users, booking):
-    """users.role still exists and is still returned; it confers no privilege."""
+def test_there_are_no_roles_at_all(client, users, booking):
+    """The role column is gone. The old privileged accounts are ordinary users."""
     for handle in ("reception", "admin"):
         me = client.get("/api/me", headers=headers_for(users[handle])).json()
-        assert me["role"] in ("RECEPTION", "ADMIN")
+        assert "role" not in me, me
         seen = client.get(
             f"/api/bookings/{booking['id']}", headers=headers_for(users[handle])
         ).json()

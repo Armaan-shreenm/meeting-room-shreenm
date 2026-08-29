@@ -1,7 +1,7 @@
 """Availability payloads.
 
 Every time in here is an ``"HH:MM"`` string in Asia/Kolkata. The frontend never
-receives a UTC timestamp and never does timezone arithmetic — conversion happens
+receives a UTC timestamp and never does timezone arithmetic - conversion happens
 server-side in :mod:`app.core.time`.
 """
 
@@ -77,7 +77,7 @@ class AvailabilityResponse(BaseModel):
 
 
 class ExitCapResponse(BaseModel):
-    """The latest exit permitted for a given entry — the prototype's capAfter()."""
+    """The latest exit permitted for a given entry - the prototype's capAfter()."""
 
     room: str
     date: date_type

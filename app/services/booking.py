@@ -1,12 +1,12 @@
-"""Booking creation — spec sections 3, 5, 7 and 10.
+"""Booking creation - spec sections 3, 5, 7 and 10.
 
 Section 7 requires three layers against a double booking and says only the third
 is a guarantee:
 
-1. **Screen** — the frontend greys out booked windows. Not this module's job.
-2. **Server** — :func:`create_booking` re-checks availability inside the same
+1. **Screen** - the frontend greys out booked windows. Not this module's job.
+2. **Server** - :func:`create_booking` re-checks availability inside the same
    transaction as the insert, immediately before it.
-3. **Database** — the ``no_double_booking`` EXCLUDE constraint. Two requests can
+3. **Database** - the ``no_double_booking`` EXCLUDE constraint. Two requests can
    pass layer 2 simultaneously; only this stops them both writing.
 
 Layer 3 is caught by SQLSTATE ``23P01`` (exclusion_violation), never by matching
@@ -179,7 +179,7 @@ def build_conflict(db: Session, room: Room, day: date, window: Window) -> Confli
             free_rooms=[r.name for r in free],
         )
 
-    # Nothing free for that window at all — section 10's other message.
+    # Nothing free for that window at all - section 10's other message.
     total_rooms = len(av.rooms_in_order(db))
     duration = window.exit - window.entry
     first = av.first_free_room(db, day, duration, not_before=window.entry)
@@ -228,8 +228,8 @@ def create_booking(db: Session, actor: User, request: BookingRequest) -> Booking
     # ---- Layer 2: re-check inside this transaction, immediately before insert.
     #
     # Every kind of overlap lands here, including an exit that runs into the next
-    # booking (section 4). They are all the same thing to the specification — a
-    # clash — and section 5 gives one wording for it, naming the room and the
+    # booking (section 4). They are all the same thing to the specification - a
+    # clash - and section 5 gives one wording for it, naming the room and the
     # rooms still free. Refusing them separately would invent a message the
     # section 10 table does not have.
     if not av.is_window_free(room_windows, window):

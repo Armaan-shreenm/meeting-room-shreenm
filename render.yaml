@@ -1,5 +1,5 @@
 # =============================================================================
-# NM Meet — Render Blueprint.
+# NM Meet - Render Blueprint.
 #
 # One web service and one managed PostgreSQL database, both on free plans.
 # Everything below is free-tier compatible: no preDeployCommand, no disks, no
@@ -9,7 +9,7 @@
 # =============================================================================
 
 databases:
-  - name: nm-meet-db
+ - name: nm-meet-db
     databaseName: nm_meet
     user: nm_meet
     plan: free
@@ -20,7 +20,7 @@ databases:
     ipAllowList: []          # internal connections only; nothing exposed publicly
 
 services:
-  - type: web
+ - type: web
     name: nm-meet
     runtime: python
     plan: free
@@ -44,105 +44,105 @@ services:
       # ---- wired from the managed database above ----------------------------
       # Render supplies this as postgres://... ; config.py rewrites the scheme
       # to postgresql+psycopg2:// before SQLAlchemy ever sees it.
-      - key: DATABASE_URL
+     - key: DATABASE_URL
         fromDatabase:
           name: nm-meet-db
           property: connectionString
 
       # ---- runtime ----------------------------------------------------------
-      - key: ENVIRONMENT
+     - key: ENVIRONMENT
         value: production
-      - key: PYTHON_VERSION
+     - key: PYTHON_VERSION
         value: 3.11.9
-      - key: LOG_LEVEL
+     - key: LOG_LEVEL
         value: INFO
-      - key: SQL_ECHO
+     - key: SQL_ECHO
         value: "false"
       # Log straight to stdout, unbuffered. The filesystem is ephemeral.
-      - key: PYTHONUNBUFFERED
+     - key: PYTHONUNBUFFERED
         value: "1"
 
       # ---- authentication ---------------------------------------------------
       # Signs the session cookie. Render generates a strong value on first
       # deploy and keeps it; it is never in git. Rotating it signs everyone out.
-      - key: SECRET_KEY
+     - key: SECRET_KEY
         generateValue: true
       # One working day.
-      - key: SESSION_MAX_AGE_SECONDS
+     - key: SESSION_MAX_AGE_SECONDS
         value: "43200"
       # Sign-in passwords for seeded accounts. Leave unset so each account gets
       # its own random password, printed once in the deploy log.
-      - key: SEED_PASSWORD
+     - key: SEED_PASSWORD
         sync: false
       # Used to build the "view or cancel" link in every notification.
-      - key: PUBLIC_BASE_URL
+     - key: PUBLIC_BASE_URL
         sync: false
 
       # ---- Google Sign-In ---------------------------------------------------
       # Backend complete; the button appears on the login page once these are
       # set. Register the redirect URI in the Google Cloud console to match.
-      - key: GOOGLE_CLIENT_ID
+     - key: GOOGLE_CLIENT_ID
         sync: false
-      - key: GOOGLE_CLIENT_SECRET
+     - key: GOOGLE_CLIENT_SECRET
         sync: false
-      - key: GOOGLE_REDIRECT_URI
+     - key: GOOGLE_REDIRECT_URI
         sync: false
-      - key: ALLOWED_EMAIL_DOMAIN
+     - key: ALLOWED_EMAIL_DOMAIN
         value: shreenm.com
 
       # ---- branch and locale ------------------------------------------------
-      - key: TZ
+     - key: TZ
         value: Asia/Kolkata
-      - key: BRANCH_NAME
+     - key: BRANCH_NAME
         value: Mumbai
 
       # ---- booking rules (spec sections 3 and 4, section 13 as settled) ------
-      - key: OPEN_TIME
+     - key: OPEN_TIME
         value: "10:00"
-      - key: CLOSE_TIME
+     - key: CLOSE_TIME
         value: "19:00"
-      - key: SLOT_MINUTES
+     - key: SLOT_MINUTES
         value: "30"
-      - key: MIN_BOOKING_MINUTES
+     - key: MIN_BOOKING_MINUTES
         value: "30"
-      - key: MAX_BOOKING_MINUTES
+     - key: MAX_BOOKING_MINUTES
         value: "240"
       # Counting today: 7 means today and the next six days.
-      - key: MAX_ADVANCE_DAYS
+     - key: MAX_ADVANCE_DAYS
         value: "7"
-      - key: NO_SHOW_RELEASE_MINUTES
+     - key: NO_SHOW_RELEASE_MINUTES
         value: "15"
       # Monday=0 ... Sunday=6. D-03: Monday to Saturday working, Sunday closed.
-      - key: CLOSED_WEEKDAYS
+     - key: CLOSED_WEEKDAYS
         value: "[6]"
 
       # ---- notifications ----------------------------------------------------
       # Left off until real SMTP credentials exist. SMTP_USER and SMTP_PASSWORD
       # are marked sync:false so they are entered in the Render dashboard and are
       # never written into this file or into git.
-      - key: NOTIFICATIONS_ENABLED
+     - key: NOTIFICATIONS_ENABLED
         value: "false"
-      - key: SMTP_HOST
+     - key: SMTP_HOST
         sync: false
-      - key: SMTP_PORT
+     - key: SMTP_PORT
         value: "587"
-      - key: SMTP_USER
+     - key: SMTP_USER
         sync: false
-      - key: SMTP_PASSWORD
+     - key: SMTP_PASSWORD
         sync: false
-      - key: SMTP_STARTTLS
+     - key: SMTP_STARTTLS
         value: "true"
-      - key: SMTP_FROM_EMAIL
+     - key: SMTP_FROM_EMAIL
         sync: false
-      - key: SMTP_FROM_NAME
+     - key: SMTP_FROM_NAME
         value: NM Meet
-      - key: RECEPTION_EMAIL
+     - key: RECEPTION_EMAIL
         sync: false
-      - key: MUMBAI_GROUP_EMAIL
+     - key: MUMBAI_GROUP_EMAIL
         sync: false
-      - key: DAILY_SUMMARY_HOUR
+     - key: DAILY_SUMMARY_HOUR
         value: "8"
-      - key: CALENDAR_INVITE_ENABLED
+     - key: CALENDAR_INVITE_ENABLED
         value: "true"
 
   # ===========================================================================
@@ -160,7 +160,7 @@ services:
   # ignored; run `python -m scripts.daily_summary` from any scheduler, or by
   # hand, until the account is upgraded. See HANDOVER.md.
   # ===========================================================================
-  - type: cron
+ - type: cron
     name: nm-meet-daily-summary
     runtime: python
     plan: starter
@@ -170,42 +170,42 @@ services:
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python -m scripts.daily_summary"
     envVars:
-      - key: DATABASE_URL
+     - key: DATABASE_URL
         fromDatabase:
           name: nm-meet-db
           property: connectionString
-      - key: ENVIRONMENT
+     - key: ENVIRONMENT
         value: production
-      - key: PYTHON_VERSION
+     - key: PYTHON_VERSION
         value: 3.11.9
-      - key: PYTHONUNBUFFERED
+     - key: PYTHONUNBUFFERED
         value: "1"
-      - key: TZ
+     - key: TZ
         value: Asia/Kolkata
-      - key: BRANCH_NAME
+     - key: BRANCH_NAME
         value: Mumbai
       # The summary must be able to sign its own messages and address them.
-      - key: SECRET_KEY
+     - key: SECRET_KEY
         generateValue: true
-      - key: PUBLIC_BASE_URL
+     - key: PUBLIC_BASE_URL
         sync: false
-      - key: NOTIFICATIONS_ENABLED
+     - key: NOTIFICATIONS_ENABLED
         value: "false"
-      - key: SMTP_HOST
+     - key: SMTP_HOST
         sync: false
-      - key: SMTP_PORT
+     - key: SMTP_PORT
         value: "587"
-      - key: SMTP_USER
+     - key: SMTP_USER
         sync: false
-      - key: SMTP_PASSWORD
+     - key: SMTP_PASSWORD
         sync: false
-      - key: SMTP_STARTTLS
+     - key: SMTP_STARTTLS
         value: "true"
-      - key: SMTP_FROM_EMAIL
+     - key: SMTP_FROM_EMAIL
         sync: false
-      - key: SMTP_FROM_NAME
+     - key: SMTP_FROM_NAME
         value: NM Meet
-      - key: RECEPTION_EMAIL
+     - key: RECEPTION_EMAIL
         sync: false
-      - key: MUMBAI_GROUP_EMAIL
+     - key: MUMBAI_GROUP_EMAIL
         sync: false

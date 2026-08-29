@@ -1,4 +1,4 @@
-"""Notifications — spec section 8.
+"""Notifications - spec section 8.
 
 Notifications are **always sent**. There is no toggle and no opt-out, so this
 module has no "if enabled" branch around whether a recipient is told; the only
@@ -241,7 +241,7 @@ def notify(
 ) -> list[NotificationLog]:
     """Notify every recipient of one event. The caller owns the transaction.
 
-    Returns the log rows written — one per recipient, always, whether the send
+    Returns the log rows written - one per recipient, always, whether the send
     succeeded, failed or was deferred to the daily summary.
     """
     return notify_recipients(db, booking, event, recipients_for(booking))

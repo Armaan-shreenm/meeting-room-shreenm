@@ -34,7 +34,7 @@ class NotFoundError(NmMeetError):
 
 
 class PermissionError_(NmMeetError):
-    """The actor is not allowed to do this — spec section 9."""
+    """The actor is not allowed to do this - spec section 9."""
 
     status_code = 403
 

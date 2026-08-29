@@ -1,4 +1,4 @@
-"""Notification and audit trails — spec section 11."""
+"""Notification and audit trails - spec section 11."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Health check — Render's ``healthCheckPath``.
+"""Health check - Render's ``healthCheckPath``.
 
 A deploy is only healthy if the application can reach its database. An instance
 that cannot talk to PostgreSQL cannot answer a single useful request, so this

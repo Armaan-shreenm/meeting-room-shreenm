@@ -1,4 +1,4 @@
-"""Phase 2 — availability and booking creation.
+"""Phase 2 - availability and booking creation.
 
 Covers the specification's own test cases that are backend-testable at this
 stage: T01, T02, T03, T04, T05, T06, T07, T08 and T15, plus the closed-day,
@@ -71,7 +71,7 @@ def test_directory_returns_only_active_members(client, users):
 
 
 # =============================================================================
-# T-01 / T-02 — availability is per room, never global
+# T-01 / T-02 - availability is per room, never global
 # =============================================================================
 
 
@@ -136,7 +136,7 @@ def test_T02_other_rooms_are_untouched(client, users, departments, rooms, day):
 
 
 # =============================================================================
-# T-03 / T-04 — back to back is allowed at both edges
+# T-03 / T-04 - back to back is allowed at both edges
 # =============================================================================
 
 
@@ -204,7 +204,7 @@ def test_overlap_is_refused(client, users, departments, rooms, day):
 
 
 # =============================================================================
-# T-05 — exit cap
+# T-05 - exit cap
 # =============================================================================
 
 
@@ -300,7 +300,7 @@ def test_exit_running_into_the_next_booking_is_refused_as_a_clash(
 
 
 # =============================================================================
-# T-06 — concurrency. Real threads, shared barrier, no mocking.
+# T-06 - concurrency. Real threads, shared barrier, no mocking.
 # =============================================================================
 
 
@@ -404,7 +404,7 @@ def test_all_rooms_taken_names_the_first_to_free_up(
 
 
 # =============================================================================
-# T-07, T-08, T-15 — the validation table
+# T-07, T-08, T-15 - the validation table
 # =============================================================================
 
 
@@ -474,7 +474,7 @@ def test_before_opening_is_refused(client, users, departments, rooms, day):
 def test_T15_quarter_past_is_not_a_slot_boundary(
     client, users, departments, rooms, day
 ):
-    """Minutes snap to :00 and :30 — a 14:15 entry cannot be booked."""
+    """Minutes snap to :00 and :30 - a 14:15 entry cannot be booked."""
     response = post_booking(
         client,
         users["priya"],
@@ -663,7 +663,7 @@ def test_beyond_the_booking_window_is_refused(client, users, departments, rooms)
 
 
 # =============================================================================
-# Timezone — local date drives everything, never the UTC date
+# Timezone - local date drives everything, never the UTC date
 # =============================================================================
 
 

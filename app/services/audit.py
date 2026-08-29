@@ -1,4 +1,4 @@
-"""Audit trail — spec section 11.
+"""Audit trail - spec section 11.
 
 Section 9 point 6: a booking is marked CANCELLED and kept for the audit record,
 never deleted. A no-show release sends no notification at all, so the row this

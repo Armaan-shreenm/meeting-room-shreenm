@@ -1,7 +1,7 @@
 """Every user-facing string in NM Meet.
 
 Spec section 10 is explicit: "Invalid selection" or "Booking failed" is not
-acceptable — the user must be told what to do next, and every message names the
+acceptable - the user must be told what to do next, and every message names the
 room and the time. Keeping the strings in one module is what makes that
 reviewable, and what stops a message being invented at a call site.
 
@@ -9,15 +9,15 @@ The SECTION 10 block below reproduces the specification's table verbatim. Do not
 reword those strings; they are the contract. Strings outside that block cover
 situations the table does not list, and follow its rule: say what to do next.
 
-Times inside messages are written the way the specification writes them —
-"1 pm", "3 pm", "1:30 pm" — never "13:00". Use
+Times inside messages are written the way the specification writes them - 
+"1 pm", "3 pm", "1:30 pm" - never "13:00". Use
 :func:`app.core.time.format_clock` for every one of them.
 """
 
 from __future__ import annotations
 
 # =============================================================================
-# SECTION 10 — VALIDATION AND MESSAGES, verbatim from the specification
+# SECTION 10 - VALIDATION AND MESSAGES, verbatim from the specification
 # =============================================================================
 
 # Exit time is before or equal to entry time
@@ -71,7 +71,7 @@ CONDUCTOR_REQUIRED = "Please say who is conducting the meeting."
 
 
 # =============================================================================
-# Beyond section 10 — situations the table does not list
+# Beyond section 10 - situations the table does not list
 # =============================================================================
 
 # Spec section 4: "Minutes snap to 30. Only :00 and :30 can be selected."

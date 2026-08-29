@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#17171C">
-<title>NM Meet — Mumbai</title>
+<title>NM Meet - Mumbai</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ==========================================================================
-   NM Meet — one brand colour (#F5A300) with a warm neutral ground.
+   NM Meet - one brand colour (#F5A300) with a warm neutral ground.
    Soft corners, real shadows, movement on everything that responds.
    Mobile first: the grid scrolls sideways under a pinned time column, and
    the booking panel becomes a bottom sheet.
@@ -36,14 +36,13 @@
   --ok:#0E9C92;
   --no:#D6452F;
 
-  --spark:#E39A2E; --power:#DD4F3A; --pulse:#0E9C92; --ignite:#C5468A; --switch:#4F5FDB;
-
   --r-sm:8px; --r:12px; --r-lg:18px; --r-xl:24px;
-  --sh-1:0 1px 2px rgba(27,26,23,.05), 0 1px 3px rgba(27,26,23,.04);
-  --sh-2:0 4px 12px rgba(27,26,23,.07), 0 2px 4px rgba(27,26,23,.04);
-  --sh-3:0 18px 44px rgba(27,26,23,.14), 0 4px 12px rgba(27,26,23,.07);
+  --sh-1:0 1px 2px rgba(27,26,23,.05);
+  --sh-2:0 4px 12px rgba(27,26,23,.07);
+  --sh-3:0 18px 44px rgba(27,26,23,.14);
   --ease:cubic-bezier(.4,0,.2,1);
-  --slot-h:46px; --time-w:66px; --gut:20px;
+  /* One box is one hour. A half-hour booking fills half of it. */
+  --hour-h:62px; --time-w:70px; --gut:20px;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -65,13 +64,10 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .topin{display:flex;align-items:center;gap:12px;padding:14px 0}
 .logo{display:flex;align-items:center;gap:10px;min-width:0}
 .bolt{width:30px;height:30px;border-radius:9px;background:var(--brand);
-  display:grid;place-items:center;color:#241800;font-size:15px;font-weight:700;flex:none;
-  box-shadow:0 2px 10px rgba(245,163,0,.35)}
+  display:grid;place-items:center;color:#241800;font-size:15px;font-weight:700;flex:none}
 .brand{font-weight:700;font-size:17px;letter-spacing:-.01em;white-space:nowrap}
 .topin .sp{flex:1}
 .who{display:flex;align-items:center;gap:9px;min-width:0}
-.avatar{width:30px;height:30px;border-radius:50%;background:var(--dark-2);color:var(--brand);
-  display:grid;place-items:center;font-size:12px;font-weight:700;flex:none;border:1px solid #35333c}
 .whoname{font-size:13.5px;font-weight:500;color:#D9D5CD;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
 .signout{font-size:13px;color:#98938B;padding:7px 11px;border-radius:var(--r-sm);transition:.16s var(--ease)}
 .signout:hover{color:#fff;background:rgba(255,255,255,.08)}
@@ -90,22 +86,21 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .dlbl span.is-today{color:var(--brand-600);font-weight:600}
 .tbtn{border:1px solid var(--line);background:var(--card);border-radius:var(--r);height:42px;padding:0 15px;
   font-size:14px;font-weight:500;color:var(--ink-2);box-shadow:var(--sh-1);transition:.16s var(--ease)}
-.tbtn:hover:not(:disabled){background:var(--sunk);transform:translateY(-1px)}
+.tbtn:hover:not(:disabled){background:var(--sunk)}
 .tbtn:disabled{opacity:.4;cursor:not-allowed}
 .bar .sp{flex:1}
-.cta{background:var(--brand);color:#241800;border-radius:var(--r);height:42px;padding:0 20px;
-  font-weight:600;font-size:14.5px;display:inline-flex;align-items:center;gap:8px;
-  box-shadow:0 2px 10px rgba(245,163,0,.32);transition:.18s var(--ease)}
-.cta:hover{background:#FFB524;transform:translateY(-1px);box-shadow:0 6px 18px rgba(245,163,0,.4)}
-.cta:active{transform:translateY(0)}
+.cta{background:var(--brand);color:#241800;border:1px solid var(--ink);border-radius:var(--r);
+  height:42px;padding:0 20px;font-weight:600;font-size:14.5px;
+  display:inline-flex;align-items:center;gap:8px;transition:background .18s var(--ease)}
+.cta:hover{background:#FFB524}
 
 /* ---------- date picker ---------- */
 .datepick{position:relative}
 .dlbl{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
   box-shadow:var(--sh-1);padding:7px 15px;text-align:left;min-width:170px;
   transition:.16s var(--ease)}
-.dlbl:hover{background:var(--sunk);transform:translateY(-1px)}
-.dlbl[aria-expanded="true"]{border-color:var(--brand);box-shadow:0 0 0 3px rgba(245,163,0,.16)}
+.dlbl:hover{background:var(--sunk)}
+.dlbl[aria-expanded="true"]{border-color:var(--ink)}
 .dlbl span.dlbl-t{display:flex;align-items:center;gap:7px}  /* .dlbl span sets display:block and would otherwise win on specificity */
 .dlbl b{font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap}
 .chev{color:var(--muted);flex:none;transition:transform .2s var(--ease)}
@@ -132,55 +127,66 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .banner b{font-weight:600}
 
 /* ---------- board ---------- */
-.board{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);
-  box-shadow:var(--sh-2);overflow:hidden;margin-bottom:14px}
-.scroll{overflow:auto;max-height:min(64vh,620px);position:relative;
-  scrollbar-width:thin;overscroll-behavior:contain}
+.board{background:var(--card);border:1px solid var(--ink);border-radius:var(--r-lg);
+  overflow:hidden;margin-bottom:28px}
+.scroll{overflow:auto;position:relative;scrollbar-width:thin;overscroll-behavior:contain}
 .scroll::-webkit-scrollbar{width:10px;height:10px}
-.scroll::-webkit-scrollbar-thumb{background:#DCD6CC;border-radius:20px;border:3px solid var(--card)}
-.sheet{display:grid;grid-template-columns:var(--time-w) repeat(5,minmax(124px,1fr));min-width:660px;position:relative}
+.scroll::-webkit-scrollbar-thumb{background:#D6D1C8;border-radius:20px;border:3px solid var(--card)}
 
-.hcell{position:sticky;top:0;z-index:6;background:var(--card);border-bottom:1px solid var(--line);
-  padding:13px 12px;display:flex;align-items:center;gap:8px}
-.hcell.corner{left:0;z-index:8;border-right:1px solid var(--line);justify-content:center}
-.corner span{font-size:10.5px;font-weight:600;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
-.rdot{width:9px;height:9px;border-radius:3px;background:var(--c);flex:none}
-.rname{font-size:13.5px;font-weight:600;letter-spacing:-.01em}
-.rmin{font-size:11px;color:var(--muted);margin-left:auto;white-space:nowrap}
+/* Columns share the width equally: time column, then one per room. */
+.sheet{display:grid;grid-template-columns:var(--time-w) repeat(var(--cols,5),1fr);
+  min-width:620px;position:relative}
 
-.tk{position:sticky;left:0;z-index:4;background:var(--card);border-right:1px solid var(--line);
-  border-top:1px solid var(--line-2);display:flex;align-items:flex-start;justify-content:flex-end;
-  padding:5px 9px 0 4px;font-size:11.5px;font-weight:500;color:var(--muted);
+.hcell{position:sticky;top:0;z-index:6;background:var(--card);
+  border-bottom:1px solid var(--ink);border-left:1px solid var(--line);
+  padding:13px 14px;display:flex;align-items:center;min-width:0}
+.hcell:first-child{border-left:0}
+.hcell.corner{left:0;z-index:8;justify-content:center}
+.corner span{font-size:10.5px;font-weight:600;letter-spacing:.08em;color:var(--muted);
+  text-transform:uppercase}
+.rname{font-size:14px;font-weight:600;letter-spacing:-.01em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Time column: one label per hour band, aligned to its line. */
+.tkcol{position:sticky;left:0;z-index:4;background:var(--card);
+  border-right:1px solid var(--line)}
+.tkcol .tk{height:var(--hour-h);border-top:1px solid var(--line);
+  display:flex;align-items:flex-start;justify-content:flex-end;
+  padding:5px 10px 0 4px;font-size:12px;font-weight:500;color:var(--ink-2);
   font-variant-numeric:tabular-nums;white-space:nowrap}
-.tk.hr{color:var(--ink-2);border-top-color:var(--line)}
+.tkcol .tk:first-child{border-top:0}
 
-.cell{border-top:1px solid var(--line-2);border-left:1px solid var(--line-2);
-  position:relative;transition:background .14s var(--ease)}
-.cell.hr{border-top-color:var(--line)}
-.cell:not(.gone):hover{background:var(--brand-50);cursor:pointer}
-.cell.gone{background:var(--sunk);cursor:default}
+/* One column per room. Hour lines are drawn, not built from elements, so a
+   booking can sit at any offset inside them. */
+.col{position:relative;border-left:1px solid var(--line);
+  background:repeating-linear-gradient(to bottom,
+    transparent 0, transparent calc(var(--hour-h) - 1px),
+    var(--line) calc(var(--hour-h) - 1px), var(--line) var(--hour-h))}
+.col.shut{background-color:var(--sunk)}
 
-.run{margin:2px 3px;padding:7px 10px;border-radius:var(--r-sm);text-align:left;position:relative;
-  overflow:hidden;z-index:2;display:block;
-  background:color-mix(in srgb,var(--c) 11%,#fff);
-  border:1px solid color-mix(in srgb,var(--c) 28%,#fff);
-  border-left:3px solid var(--c);
-  transition:.16s var(--ease)}
-.run:hover{background:color-mix(in srgb,var(--c) 18%,#fff);transform:translateY(-1px);box-shadow:var(--sh-2)}
-.run.mine{border-left-width:5px}
-.run .rt{font-weight:600;font-size:13px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.run .rm{font-size:11px;color:var(--ink-2);margin-top:2px;font-variant-numeric:tabular-nums}
-.run .rw{font-size:11.5px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mytag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.05em;color:var(--brand-600);
-  background:var(--brand-50);border:1px solid var(--brand-200);border-radius:20px;padding:0 5px;margin-left:5px;vertical-align:1px}
+/* Invisible half-hour hit areas: no visible line, full 30-minute precision. */
+.slot{position:absolute;left:0;right:0;height:calc(var(--hour-h) / 2);
+  transition:background .14s var(--ease)}
+.slot:not(.gone):hover{background:var(--brand-50);cursor:pointer}
+.slot.gone{cursor:default}
+
+.run{position:absolute;left:3px;right:3px;border-radius:var(--r-sm);
+  padding:6px 9px;text-align:left;overflow:hidden;z-index:2;
+  background:var(--brand-50);border:1px solid var(--ink);
+  transition:background .16s var(--ease)}
+.run:hover{background:var(--brand-200)}
+.run.mine{background:var(--brand);border-color:var(--ink)}
+.run .rt{font-weight:600;font-size:12.5px;line-height:1.25;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.run .rm{font-size:11px;color:var(--ink-2);margin-top:1px;font-variant-numeric:tabular-nums}
+.run .rw{font-size:11px;color:var(--ink-2);margin-top:1px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 .now{position:absolute;left:0;right:0;height:0;z-index:5;pointer-events:none}
-.now::before{content:"";position:absolute;left:var(--time-w);right:0;top:0;height:2px;background:var(--no);opacity:.65}
-.now::after{content:"";position:absolute;left:calc(var(--time-w) - 4px);top:-4px;width:9px;height:9px;
-  border-radius:50%;background:var(--no)}
-
-.key{display:flex;gap:16px;flex-wrap:wrap;padding:0 2px 36px;font-size:12.5px;color:var(--muted);align-items:center}
-.key i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:6px;vertical-align:-2px}
+.now::before{content:"";position:absolute;left:var(--time-w);right:0;top:0;
+  height:2px;background:var(--no)}
+.now::after{content:"";position:absolute;left:calc(var(--time-w) - 4px);top:-4px;
+  width:9px;height:9px;border-radius:50%;background:var(--no)}
 
 /* ---------- panel / bottom sheet ---------- */
 .veil{position:fixed;inset:0;background:rgba(23,23,28,.5);backdrop-filter:blur(2px);
@@ -211,13 +217,10 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 /* ---------- room picker ---------- */
 .rlist{display:grid;gap:9px}
 .rpick{border:1.5px solid var(--line);background:var(--card);border-radius:var(--r);
-  padding:14px 15px;text-align:left;display:flex;align-items:center;gap:12px;position:relative;
-  transition:.18s var(--ease)}
-.rpick::before{content:"";position:absolute;left:0;top:11px;bottom:11px;width:4px;
-  border-radius:0 4px 4px 0;background:var(--c);transition:.18s var(--ease)}
-.rpick:hover{border-color:var(--brand-200);background:var(--brand-50);transform:translateY(-1px)}
-.rpick[aria-pressed="true"]{border-color:var(--brand);background:var(--brand-50);box-shadow:0 0 0 3px rgba(245,163,0,.16)}
-.rpick[aria-pressed="true"]::before{top:6px;bottom:6px;width:5px}
+  padding:14px 15px;text-align:left;display:flex;align-items:center;gap:12px;
+  transition:background .18s var(--ease),border-color .18s var(--ease)}
+.rpick:hover{border-color:var(--ink-2);background:var(--sunk)}
+.rpick[aria-pressed="true"]{border-color:var(--ink);background:var(--brand-50)}
 .rpick b{font-size:15.5px;font-weight:600;letter-spacing:-.01em}
 .rpick .cap{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .rpick b{display:block}
@@ -239,9 +242,8 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
   border:1.5px solid transparent;transition:.16s var(--ease);position:relative}
 .day.pad{visibility:hidden}
 .day:disabled{color:#C7C2B9;cursor:not-allowed}
-.day.free:hover{background:var(--brand-50);border-color:var(--brand-200)}
-.day[aria-pressed="true"]{background:var(--brand);color:#241800;font-weight:700;border-color:var(--brand);
-  box-shadow:0 3px 10px rgba(245,163,0,.35)}
+.day.free:hover{background:var(--sunk);border-color:var(--ink-2)}
+.day[aria-pressed="true"]{background:var(--brand);color:#241800;font-weight:700;border-color:var(--ink)}
 .day em{font-style:normal;font-size:9px;font-weight:600;letter-spacing:.03em;opacity:.75}
 .day.shut em{color:var(--no);opacity:.9}
 .day[aria-pressed="true"] em{opacity:.85}
@@ -251,9 +253,8 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .t{border:1.5px solid var(--line);background:var(--card);border-radius:var(--r-sm);padding:11px 6px;
   font-size:14.5px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em;
   transition:.16s var(--ease)}
-.t:hover:not(:disabled){border-color:var(--brand-200);background:var(--brand-50);transform:translateY(-1px)}
-.t[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#241800;
-  box-shadow:0 3px 10px rgba(245,163,0,.35)}
+.t:hover:not(:disabled){border-color:var(--ink-2);background:var(--sunk)}
+.t[aria-pressed="true"]{background:var(--brand);border-color:var(--ink);color:#241800}
 .t:disabled{color:#C7C2B9;background:var(--sunk);border-color:var(--line-2);cursor:not-allowed}
 .t small{display:block;font-size:10px;font-weight:500;opacity:.7;margin-top:1px}
 /* A slot somebody already has. Not merely unavailable - it says who has it. */
@@ -274,10 +275,8 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .f input,.f select,.f textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--r-sm);
   padding:11px 12px;font-size:15px;background:var(--card);transition:.16s var(--ease)}
 .f textarea{min-height:70px;resize:vertical}
-.f input:focus,.f select:focus,.f textarea:focus{outline:none;border-color:var(--brand);
-  box-shadow:0 0 0 3px rgba(245,163,0,.15)}
+.f input:focus,.f select:focus,.f textarea:focus{outline:none;border-color:var(--ink)}
 .f .sub{font-size:12px;color:var(--muted);margin-top:5px}
-.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
 .tag{background:var(--brand-50);border:1px solid var(--brand-200);border-radius:20px;padding:5px 6px 5px 11px;
   font-size:13px;color:#7A5200;display:flex;gap:5px;align-items:center;font-weight:500}
 .tag button{color:#B98600;font-size:15px;line-height:1;width:18px;height:18px;border-radius:50%;
@@ -291,8 +290,6 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .rev .k{font-size:12px;font-weight:600;color:var(--muted);width:96px;flex:none;padding-top:2px}
 .rev .v{flex:1;min-width:0}
 .rev .v b{font-weight:600}
-.notice{border:1px solid var(--brand-200);background:var(--brand-50);border-radius:var(--r);
-  padding:13px 15px;margin-top:14px}
 .notice b{display:block;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
   color:#7A5200;margin-bottom:6px}
 .notice ul{margin:0;padding-left:17px;font-size:13.5px;color:var(--ink-2)}
@@ -302,9 +299,8 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .act{border:1.5px solid var(--line);background:var(--card);border-radius:var(--r);padding:12px 18px;
   font-size:15px;font-weight:600;transition:.18s var(--ease)}
 .act:hover:not(:disabled){background:var(--sunk)}
-.act.go{flex:1;background:var(--brand);border-color:var(--brand);color:#241800;
-  box-shadow:0 2px 10px rgba(245,163,0,.32)}
-.act.go:hover:not(:disabled){background:#FFB524;transform:translateY(-1px);box-shadow:0 6px 18px rgba(245,163,0,.4)}
+.act.go{flex:1;background:var(--brand);border-color:var(--ink);color:#241800}
+.act.go:hover:not(:disabled){background:#FFB524}
 .act.go:disabled{opacity:.42;cursor:not-allowed;box-shadow:none;transform:none}
 .act.kill{color:var(--no);border-color:#F0C6BD}
 .act.kill:hover{background:#FFF5F3}
@@ -369,7 +365,6 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
   <div class="logo"><span class="bolt">⌁</span><span class="brand">NM Meet</span></div>
   <span class="sp"></span>
   <div class="who">
-    <span class="avatar" id="avatar"></span>
     <span class="whoname" id="who"></span>
     <button class="signout" id="signout">Sign out</button>
   </div>
@@ -379,7 +374,7 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
   <div class="bar">
     <div class="datepick">
       <button class="dlbl" id="dateBtn" aria-haspopup="dialog" aria-expanded="false">
-        <span class="dlbl-t"><b id="dBig">—</b>
+        <span class="dlbl-t"><b id="dBig"> - </b>
           <svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="3" stroke-linecap="round"
                stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
@@ -411,12 +406,6 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
     </div>
   </div>
 
-  <div class="key">
-    <span><i style="background:#fff;border:1px solid var(--line)"></i>Free — tap to book</span>
-    <span><i style="background:color-mix(in srgb,var(--pulse) 16%,#fff);border-left:3px solid var(--pulse)"></i>Booked</span>
-    <span><i style="background:var(--sunk)"></i>Unavailable</span>
-    <span id="hoursKey"></span>
-  </div>
 </div>
 
 <div class="veil" id="veil"></div>
@@ -434,7 +423,7 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 </aside>
 
 <aside class="pan" id="det" role="dialog" aria-modal="true" aria-labelledby="dh">
-  <div class="ph"><div><h2 id="dh">Booking</h2><p id="dsub">—</p></div>
+  <div class="ph"><div><h2 id="dh">Booking</h2><p id="dsub"> - </p></div>
     <button class="shut" data-x aria-label="Close">×</button></div>
   <div class="pb dl" id="dBody"></div>
   <div class="pf">
@@ -456,6 +445,9 @@ let LAST_DATE=null, CLOSED_DAYS=[0];
 let SLOTS=[];
 const rebuildSlots=()=>{SLOTS=[];for(let m=OPEN;m<SHUT;m+=STEP)SLOTS.push(m);};
 rebuildSlots();
+/* Height of one hour box, read from the stylesheet so CSS stays the source. */
+const HOUR_H=()=>parseFloat(getComputedStyle(document.documentElement)
+  .getPropertyValue('--hour-h'))||62;
 
 let bookings=[];
 const loadedDays=new Set();
@@ -473,7 +465,6 @@ const hhmm=s=>{const p=String(s).split(':');return (+p[0])*60+(+p[1]);};
 const room=id=>ROOMS.find(r=>r.id===id);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const overlap=(a1,a2,b1,b2)=>a1<b2&&a2>b1;
-const initials=n=>String(n||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
 
 const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d;};
 let cursor=today();
@@ -553,7 +544,6 @@ async function boot(){
     const me=await api('/me');
     ME_EMAIL=me.email; ME=me.full_name; MY_ID=me.id;
     document.getElementById('who').textContent=me.full_name;
-    document.getElementById('avatar').textContent=initials(me.full_name);
     const [rs,ds,dr]=await Promise.all([api('/rooms'),api('/departments'),api('/directory')]);
     ROOMS=rs.map(r=>({id:r.id,n:r.name,v:r.colour_var,min:r.min_people}));
     DEPTS=ds.map(d=>d.name); ds.forEach(d=>DEPT_ID[d.name]=d.id);
@@ -576,21 +566,19 @@ function render(){
   document.getElementById('today').disabled = isToday(ds);
   document.getElementById('dateBtn').setAttribute('aria-expanded',
     document.getElementById('pop').classList.contains('on'));
-  document.getElementById('hoursKey').textContent=
-    `${t12(OPEN)} to ${t12(SHUT)} · ${STEP} minute steps`;
 
   const banner=document.getElementById('banner');
   if(shut){
     banner.classList.add('on');
     banner.innerHTML = info.reason==='holiday'
-      ? `<b>Closed —</b> ${esc(info.detail||'holiday')}. No rooms can be booked.`
+      ? `<b>Closed - </b> ${esc(info.detail||'holiday')}. No rooms can be booked.`
       : info.reason==='past'
         ? `<b>Past.</b> This day has been and gone.`
         : `<b>Closed on Sundays.</b> Pick another day to book a room.`;
   } else banner.classList.remove('on');
 
   const sheet=document.getElementById('sheet');
-  sheet.style.gridTemplateColumns=`var(--time-w) repeat(${ROOMS.length},minmax(124px,1fr))`;
+  sheet.style.setProperty('--cols',ROOMS.length);
   sheet.innerHTML='';
 
   const corner=document.createElement('div');
@@ -598,58 +586,57 @@ function render(){
   sheet.appendChild(corner);
   ROOMS.forEach(r=>{
     const h=document.createElement('div');
-    h.className='hcell'; h.style.setProperty('--c',`var(${r.v})`);
-    h.innerHTML=`<i class="rdot"></i><span class="rname">${esc(r.n)}</span><span class="rmin">${r.min}+</span>`;
+    h.className='hcell';
+    h.innerHTML=`<span class="rname">${esc(r.n)}</span>`;
     sheet.appendChild(h);
   });
 
-  SLOTS.forEach((mm,i)=>{
-    const k=document.createElement('div');
-    k.className='tk'+(mm%60===0?' hr':''); k.style.gridColumn=1; k.style.gridRow=i+2;
-    k.textContent=mm%60===0?t12(mm):'';
-    sheet.appendChild(k);
-  });
+  /* One box per hour. A 30 minute booking covers half of one. */
+  const hours=[]; for(let h=OPEN;h<SHUT;h+=60) hours.push(h);
+  const hh=HOUR_H();
+  const px=m=>((m-OPEN)/60)*hh;
 
-  ROOMS.forEach((r,ci)=>{
-    const list=runsFor(r.id,ds);
-    const taken=new Array(SLOTS.length).fill(null);
-    list.forEach(b=>{
-      const si=SLOTS.findIndex(x=>x>=b.s);
-      const ei=Math.min(Math.ceil((b.e-OPEN)/STEP),SLOTS.length);
-      if(si<0)return;
-      for(let i=si;i<ei;i++) taken[i]= i===si?b:'x';
+  const tkcol=document.createElement('div');
+  tkcol.className='tkcol';
+  tkcol.innerHTML=hours.map(h=>`<div class="tk">${t12(h)}</div>`).join('');
+  sheet.appendChild(tkcol);
+
+  ROOMS.forEach(r=>{
+    const col=document.createElement('div');
+    col.className='col'+(shut?' shut':'');
+    col.style.height=(hours.length*hh)+'px';
+
+    SLOTS.forEach(mm=>{
+      const gone = shut || isPast(ds) || (isToday(ds)&&mm<m) || blockedAt(r.id,ds,mm);
+      const s=document.createElement('button');
+      s.className='slot'+(gone?' gone':'');
+      s.style.top=px(mm)+'px';
+      s.setAttribute('aria-label',gone?'Not available':`Book ${r.n} at ${t12(mm)}`);
+      if(gone) s.disabled=true;
+      else s.addEventListener('click',()=>startWizard({room:r.id,date:ds,entry:mm}));
+      col.appendChild(s);
     });
-    SLOTS.forEach((mm,i)=>{
-      const c=taken[i]; if(c==='x')return;
-      if(c){
-        const span=Math.max(1,Math.ceil((c.e-c.s)/STEP));
-        const el=document.createElement('button');
-        el.className='run'+(c.byId===MY_ID?' mine':'');
-        el.style.setProperty('--c',`var(${r.v})`);
-        el.style.gridColumn=ci+2; el.style.gridRow=`${i+2} / span ${span}`;
-        el.innerHTML=`<div class="rt">${esc(c.t)}${c.byId===MY_ID?'<span class="mytag">YOURS</span>':''}</div>`+
-          `<div class="rm">${t12(c.s)} – ${t12(c.e)}</div>`+
-          (span>1?`<div class="rw">${esc(c.host)} · ${esc(c.dept)}</div>`:'');
-        el.addEventListener('click',()=>openDetail(c));
-        sheet.appendChild(el);
-      }else{
-        const gone = shut || isPast(ds) || (isToday(ds)&&mm<m);
-        const el=document.createElement('button');
-        el.className='cell'+(mm%60===0?' hr':'')+(gone?' gone':'');
-        el.style.gridColumn=ci+2; el.style.gridRow=i+2;
-        el.setAttribute('aria-label',gone?'Not available':`Book ${r.n} at ${t12(mm)}`);
-        if(gone) el.disabled=true;
-        else el.addEventListener('click',()=>startWizard({room:r.id,date:ds,entry:mm}));
-        sheet.appendChild(el);
-      }
+
+    runsFor(r.id,ds).forEach(bk=>{
+      const el=document.createElement('button');
+      el.className='run'+(bk.byId===MY_ID?' mine':'');
+      el.style.top=(px(bk.s)+2)+'px';
+      el.style.height=(((bk.e-bk.s)/60)*hh-4)+'px';
+      const tall=(bk.e-bk.s)>=60;
+      el.innerHTML=`<div class="rt">${esc(bk.host)}</div>`+
+        `<div class="rm">${t12(bk.s)} - ${t12(bk.e)}</div>`+
+        (tall?`<div class="rw">${esc(bk.dept)}</div>`:'');
+      el.addEventListener('click',()=>openDetail(bk));
+      col.appendChild(el);
     });
+
+    sheet.appendChild(col);
   });
 
   const nl=document.getElementById('nowline');
   if(isToday(ds)&&!shut&&m>=OPEN&&m<SHUT){
-    const h=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--slot-h'));
     const head=document.querySelector('.hcell')?.offsetHeight||48;
-    nl.style.display='block'; nl.style.top=(head+((m-OPEN)/STEP)*h)+'px';
+    nl.style.display='block'; nl.style.top=(head+((m-OPEN)/60)*HOUR_H())+'px';
   } else nl.style.display='none';
 }
 
@@ -662,7 +649,7 @@ let W=null;
 function startWizard(pre){
   const ds=pre?.date??iso(cursor);
   W={step:1,room:pre?.room??null,date:ds,entry:pre?.entry??null,exit:null,
-     dept:DEPTS[0]||'',host:ME,att:[],title:'',note:'',cap:null,capFor:null};
+     dept:DEPTS[0]||'',host:ME,cap:null,capFor:null};
   /* Tapping a cell already answers room, day and start: jump to the end time. */
   if(W.room&&W.entry!=null){ W.step=4; loadCap().then(()=>{ if(W) paintWiz(); }); }
   paintWiz(); open_(document.getElementById('wiz'));
@@ -699,7 +686,7 @@ function stepValid(){
 /* --- step 1: room --- */
 function step1(B){
   B.innerHTML=`<div class="rlist">`+ROOMS.map(r=>`
-    <button class="rpick" style="--c:var(${r.v})" data-r="${r.id}" aria-pressed="${W.room===r.id}">
+    <button class="rpick" data-r="${r.id}" aria-pressed="${W.room===r.id}">
       <span><b>${esc(r.n)}</b><span class="cap">Best for ${r.min} or more people</span></span>
       <span class="tick">✓</span>
     </button>`).join('')+`</div>
@@ -801,7 +788,7 @@ function step3(B){
   const hint=document.createElement('div');
   hint.className='hint';
   hint.innerHTML = runs.length
-    ? `<b>${esc(r.n)}</b> is already taken ${runs.map(b=>`${t12(b.s)}–${t12(b.e)}`).join(', ')}. Those times are greyed out.`
+    ? `<b>${esc(r.n)}</b> is already taken ${runs.map(b=>`${t12(b.s)}-${t12(b.e)}`).join(', ')}. Those times are greyed out.`
     : `<b>${esc(r.n)}</b> has nothing booked on this day.`;
   B.appendChild(hint);
 }
@@ -820,45 +807,22 @@ function step4(B){
   const hint=document.createElement('div');
   hint.className='hint';
   hint.innerHTML=`Starts at <b>${t12(W.entry)}</b>. You can run to <b>${t12(cap)}</b>`+
-    (nxt&&cap===nxt.s?`, because ${esc(room(W.room).n)} is taken from then.`:` — four hours is the maximum.`);
+    (nxt&&cap===nxt.s?`, because ${esc(room(W.room).n)} is taken from then.`:` - four hours is the maximum.`);
   B.appendChild(hint);
 }
 
-/* --- step 5: details --- */
+/* --- step 5: who is booking, and for which department ---
+   Nothing else is asked. What the meeting is about, and who will be in it, is
+   not the booking system's business. */
 function step5(B){
   B.innerHTML=`
-   <div class="f"><label for="wT">What is the meeting?</label>
-     <input id="wT" type="text" maxlength="90" placeholder="Sales review" value="${esc(W.title)}">
-     <div class="sub">Leave it blank and it will just say “Meeting”.</div></div>
-   <div class="f"><label for="wD">Department</label>
+   <div class="f"><label for="wD">Which department is this for?</label>
      <select id="wD">${DEPTS.map(d=>`<option ${d===W.dept?'selected':''}>${esc(d)}</option>`).join('')}</select></div>
-   <div class="f"><label for="wH">Who is running the meeting?</label>
-     <select id="wH">${DIR.map(p=>`<option ${p===W.host?'selected':''}>${esc(p)}</option>`).join('')}</select></div>
-   <div class="f"><label for="wA">Anyone else coming?</label>
-     <input id="wA" type="text" placeholder="Type a name and press Enter" list="dirL" autocomplete="off">
-     <datalist id="dirL">${DIR.map(p=>`<option value="${esc(p)}">`).join('')}</datalist>
-     <div class="tags" id="wTags"></div></div>
-   <div class="f"><label for="wN">Anything the room needs?</label>
-     <textarea id="wN" placeholder="Projector, tea for 6, U-shape seating…">${esc(W.note)}</textarea></div>`;
-  B.querySelector('#wT').addEventListener('input',e=>W.title=e.target.value);
+   <div class="f"><label for="wH">Host</label>
+     <select id="wH">${DIR.map(p=>`<option ${p===W.host?'selected':''}>${esc(p)}</option>`).join('')}</select>
+     <div class="sub">Whoever the room is being held for.</div></div>`;
   B.querySelector('#wD').addEventListener('change',e=>{W.dept=e.target.value;});
   B.querySelector('#wH').addEventListener('change',e=>{W.host=e.target.value;});
-  B.querySelector('#wN').addEventListener('input',e=>W.note=e.target.value);
-  const ai=B.querySelector('#wA');
-  ai.addEventListener('keydown',ev=>{
-    if(ev.key==='Enter'){ ev.preventDefault();
-      const v=ai.value.trim();
-      if(v&&DIR_ID[v]!=null&&!W.att.includes(v)) W.att.push(v);
-      else if(v&&DIR_ID[v]==null) toast(`${v} is not in the directory.`,true);
-      ai.value=''; tags(); }
-  });
-  function tags(){
-    B.querySelector('#wTags').innerHTML=W.att.map((a,i)=>
-      `<span class="tag">${esc(a)}<button data-i="${i}" aria-label="Remove ${esc(a)}">×</button></span>`).join('');
-    B.querySelectorAll('#wTags button').forEach(b=>
-      b.addEventListener('click',()=>{W.att.splice(+b.dataset.i,1);tags();}));
-  }
-  tags();
 }
 
 /* --- step 6: review --- */
@@ -866,21 +830,12 @@ function step6(B){
   const d=fromIso(W.date), r=room(W.room);
   const mins=W.exit-W.entry;
   B.innerHTML=`<div class="rev">
-    <div class="row"><span class="k">Room</span><span class="v"><b>${esc(r.n)}</b> <span style="color:var(--muted)">· best for ${r.min}+</span></span></div>
+    <div class="row"><span class="k">Room</span><span class="v"><b>${esc(r.n)}</b></span></div>
     <div class="row"><span class="k">Date</span><span class="v">${d.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</span></div>
     <div class="row"><span class="k">Time</span><span class="v"><b>${t12(W.entry)} to ${t12(W.exit)}</b> · ${mins%60?(mins/60).toFixed(1):mins/60} hr</span></div>
-    <div class="row"><span class="k">Meeting</span><span class="v">${esc(W.title||'Meeting')}</span></div>
     <div class="row"><span class="k">Department</span><span class="v">${esc(W.dept)}</span></div>
-    <div class="row"><span class="k">Run by</span><span class="v">${esc(W.host)}</span></div>
-    <div class="row"><span class="k">Also coming</span><span class="v">${W.att.length?W.att.map(esc).join(', '):'Nobody added'}</span></div>
-    ${W.note?`<div class="row"><span class="k">Room needs</span><span class="v">${esc(W.note)}</span></div>`:''}
-  </div>
-  <div class="notice"><b>Who gets told</b><ul>
-    <li>${W.att.length?W.att.length+' other'+(W.att.length>1?'s':''):'Anyone you add'}</li>
-    <li>${esc(W.host)} — running it</li>
-    <li>Reception, Mumbai</li>
-    <li>The Mumbai branch group, in tomorrow's 8 am summary</li>
-  </ul></div>`;
+    <div class="row"><span class="k">Host</span><span class="v">${esc(W.host)}</span></div>
+  </div>`;
 }
 
 async function loadCap(){
@@ -907,12 +862,11 @@ document.getElementById('wNext').addEventListener('click',async()=>{
     await api('/bookings',{method:'POST',body:JSON.stringify({
       room_id:W.room, date:W.date, entry:t24(W.entry), exit:t24(W.exit),
       department_id:DEPT_ID[W.dept]??null, conducted_by:DIR_ID[W.host]??null,
-      attendee_ids:W.att.map(n=>DIR_ID[n]).filter(v=>v!=null),
-      title:W.title.trim(), reception_note:W.note.trim()||null})});
+      attendee_ids:[], title:'', reception_note:null})});
     /* shut_() clears W, so everything the toast and the grid need is read first. */
     const r=room(W.room), s=W.entry, e=W.exit, when=W.date;
     shut_(); cursor=fromIso(when); await refresh();
-    toast(`${r.n} is yours, ${t12(s)} to ${t12(e)}. Everyone invited has been told.`);
+    toast(`${r.n} is yours, ${t12(s)} to ${t12(e)}.`);
   }catch(e){
     nx.disabled=false;
     if(e.status===409){
@@ -929,16 +883,13 @@ async function openDetail(b){
   let d;
   try{ d=await api(`/bookings/${b.id}`); }catch(e){ toast(e.message,true); return; }
   dropId=d.id; dropCan=d.can_cancel;
-  const att=d.attendees.map(a=>a.full_name);
-  document.getElementById('dh').textContent=d.title;
-  document.getElementById('dsub').textContent=`${d.room_name} · ${t12(hhmm(d.entry))} – ${t12(hhmm(d.exit))}`;
+  document.getElementById('dh').textContent=d.room_name;
+  document.getElementById('dsub').textContent=`${t12(hhmm(d.entry))} - ${t12(hhmm(d.exit))}`;
   document.getElementById('dBody').innerHTML=`<dl>
     <dt>When</dt><dd>${fromIso(d.date).toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}<br>${t12(hhmm(d.entry))} to ${t12(hhmm(d.exit))}</dd>
     <dt>Room</dt><dd>${esc(d.room_name)}</dd>
     <dt>Department</dt><dd>${esc(d.department)}</dd>
-    <dt>Run by</dt><dd>${esc(d.host)}${d.host===ME?' <span class="pill">you</span>':''}</dd>
-    <dt>Also coming</dt><dd>${att.length?att.map(esc).join(', '):'Nobody added'}</dd>
-    ${d.reception_note?`<dt>Room needs</dt><dd>${esc(d.reception_note)}</dd>`:''}
+    <dt>Host</dt><dd>${esc(d.host)}${d.host===ME?' <span class="pill">you</span>':''}</dd>
     <dt>Booked by</dt><dd>${esc(d.booked_by)}${d.booked_by_id===MY_ID?' <span class="pill">you</span>':''}</dd></dl>`;
   const dr=document.getElementById('drop');
   dr.dataset.armed='0'; dr.classList.remove('armed');
@@ -952,7 +903,7 @@ document.getElementById('drop').addEventListener('click',async ev=>{
   if(!b||!dropCan) return;
   if(dr.dataset.armed!=='1'){
     dr.dataset.armed='1'; dr.classList.add('armed'); dr.textContent='Tap again to confirm';
-    toast(`This frees ${room(b.room).n} and tells everyone the meeting is off.`);
+    toast(`This frees ${room(b.room).n} for everyone else.`);
     return;
   }
   dr.disabled=true;
@@ -1006,7 +957,7 @@ function paintPop(){
   document.getElementById('popGrid').innerHTML=html;
   document.getElementById('popFoot').textContent=
     `Any date can be viewed. Booking is open until ${
-      LAST_DATE?fromIso(LAST_DATE).toLocaleDateString('en-IN',{day:'numeric',month:'short'}):'—'}.`;
+      LAST_DATE?fromIso(LAST_DATE).toLocaleDateString('en-IN',{day:'numeric',month:'short'}):' - '}.`;
 
   document.getElementById('popGrid').querySelectorAll('.day[data-d]').forEach(b=>
     b.addEventListener('click',()=>{

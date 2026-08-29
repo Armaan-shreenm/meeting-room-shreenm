@@ -1,4 +1,4 @@
-"""Declared holidays — spec field 2 and section 10.
+"""Declared holidays - spec field 2 and section 10.
 
 A date in this table makes the office closed that day, alongside the weekly
 closure from ``settings.closed_weekdays``.
