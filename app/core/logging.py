@@ -11,8 +11,24 @@ import sys
 
 from app.config import settings
 
-_LOG_FORMAT = "%(asctime)s %(levelname)-8s %(name)s: %(message)s"
+_LOG_FORMAT = "%(asctime)s %(levelname)-8s [%(request_id)s] %(name)s: %(message)s"
 _DATE_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
+
+
+class RequestIdFilter(logging.Filter):
+    """Stamp every record with the current request id, or "-" outside one.
+
+    Structured enough to grep without a JSON logging dependency: every line of
+    one request shares an id, so a report of "reference a1b2c3d4" finds the
+    whole story in Render's log stream.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Imported lazily: middleware imports config, which must not import this.
+        from app.core.middleware import request_id_var
+
+        record.request_id = request_id_var.get()
+        return True
 
 
 def configure_logging() -> None:
@@ -21,6 +37,7 @@ def configure_logging() -> None:
 
     handler = logging.StreamHandler(stream=sys.stdout)
     handler.setFormatter(logging.Formatter(fmt=_LOG_FORMAT, datefmt=_DATE_FORMAT))
+    handler.addFilter(RequestIdFilter())
 
     root = logging.getLogger()
     root.handlers.clear()

@@ -30,6 +30,13 @@ from app.config import settings
 from app.core import messages
 from app.core.errors import ConflictError, NmMeetError
 from app.core.logging import configure_logging
+from app.core.middleware import (
+    REQUEST_ID_HEADER,
+    RateLimitMiddleware,
+    RequestIdMiddleware,
+    request_id_var,
+)
+from app.services.transports import configure_transport
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -57,8 +64,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     only in memory.
     """
     configure_logging()
+    transport = configure_transport()
     logger.info(
-        "NM Meet %s starting - environment=%s branch=%s timezone=%s hours=%s-%s",
+        "NM Meet %s starting - environment=%s branch=%s timezone=%s hours=%s-%s "
+        f"notifications={transport}",
         __version__,
         settings.environment,
         settings.branch_name,
@@ -82,6 +91,16 @@ app = FastAPI(
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
 )
+
+# Middleware runs bottom-up, so RequestIdMiddleware is added last and therefore
+# runs first: everything below it, including a rate-limit refusal, is logged
+# with an id.
+app.add_middleware(
+    RateLimitMiddleware,
+    limit=settings.rate_limit_bookings,
+    window_seconds=settings.rate_limit_window_seconds,
+)
+app.add_middleware(RequestIdMiddleware)
 
 # Permissive in development, where the frontend may be opened from a file or a
 # second port. Effectively unused in production: the API and the page it serves
@@ -132,6 +151,28 @@ async def handle_request_validation(
 
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST, content={"detail": detail}
+    )
+
+
+@app.exception_handler(Exception)
+async def handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
+    """The catch-all. A stack trace never reaches a user.
+
+    The full traceback goes to stdout with the request id; the user gets a
+    sentence and that same id to quote. Anything else either leaks the schema
+    and file paths, or leaves the user with nothing to report.
+    """
+    request_id = request_id_var.get()
+    logger.exception(
+        "Unhandled error on %s %s (request id=%s)",
+        request.method,
+        request.url.path,
+        request_id,
+    )
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": messages.UNEXPECTED_ERROR.format(request_id=request_id)},
+        headers={REQUEST_ID_HEADER: request_id},
     )
 
 

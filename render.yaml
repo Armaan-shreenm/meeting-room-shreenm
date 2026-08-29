@@ -132,12 +132,67 @@ services:
       - key: CALENDAR_INVITE_ENABLED
         value: "true"
 
-# -----------------------------------------------------------------------------
-# NOT DEFINED HERE, ON PURPOSE
-#
-# D-01 settles the Mumbai branch list on a daily 8 am summary. That will be a
-# separate Render Cron Job, added to this blueprint in the phase that builds
-# notifications. It is not an APScheduler thread inside the web service: this
-# service sleeps on the free plan and a background thread cannot be relied on to
-# be alive at 08:00 IST.
-# -----------------------------------------------------------------------------
+  # ===========================================================================
+  # D-01 - the Mumbai branch group's daily 8 am summary.
+  #
+  # A separate cron job, deliberately NOT an in-process scheduler. The web
+  # service sleeps after fifteen minutes of inactivity on the free plan, so a
+  # background thread inside it cannot be relied on to be awake at 08:00 IST.
+  # Render starts this container on schedule, runs it to completion and stops it.
+  #
+  # schedule is UTC: 02:30 UTC == 08:00 Asia/Kolkata (UTC+5:30), all year, since
+  # India observes no daylight saving.
+  #
+  # NOTE: cron jobs are a PAID Render feature. On the free plan this service is
+  # ignored; run `python -m scripts.daily_summary` from any scheduler, or by
+  # hand, until the account is upgraded. See HANDOVER.md.
+  # ===========================================================================
+  - type: cron
+    name: nm-meet-daily-summary
+    runtime: python
+    plan: starter
+    region: singapore
+    branch: main
+    schedule: "30 2 * * 1-6"          # Mon-Sat, 08:00 IST. Sunday is closed.
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python -m scripts.daily_summary"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nm-meet-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: TZ
+        value: Asia/Kolkata
+      - key: BRANCH_NAME
+        value: Mumbai
+      # The summary must be able to sign its own messages and address them.
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: NOTIFICATIONS_ENABLED
+        value: "false"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_STARTTLS
+        value: "true"
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: SMTP_FROM_NAME
+        value: NM Meet
+      - key: RECEPTION_EMAIL
+        sync: false
+      - key: MUMBAI_GROUP_EMAIL
+        sync: false

@@ -56,16 +56,6 @@ class Settings(BaseSettings):
     # Printed once by scripts/seed.py when it sets a password it generated.
     seed_password: str = ""
 
-    # ---------------------------------------------------------- actor identity
-    # Real authentication arrives in Phase 5. Until then the actor is resolved
-    # from the X-User-Email request header, and this is who it falls back to
-    # when the header is absent.
-    #
-    # The fallback applies ONLY when environment != "production". In production a
-    # request with no header is a 401: an unauthenticated booking silently made
-    # in somebody else's name is worse than a failed request. See app.core.auth.
-    dev_user_email: str = "priya.nair@shreenm.com"
-
     # --------------------------------------------------------- branch, locale
     # Stored as timestamptz in UTC, displayed in this zone. Spec section 11.
     tz: str = "Asia/Kolkata"
@@ -104,6 +94,12 @@ class Settings(BaseSettings):
     daily_summary_hour: int = 8
     # D-02: an .ics invite is attached; no video-conference link is created.
     calendar_invite_enabled: bool = True
+
+    # ------------------------------------------------------------ hardening
+    # Booking writes per session per window. Reads are never limited: the grid
+    # polls availability every minute.
+    rate_limit_bookings: int = 20
+    rate_limit_window_seconds: int = 60
 
     # -------------------------------------------------------------------- cors
     # Unused in production: FastAPI serves the frontend and the API from one origin.

@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 
 from app.config import settings
+from app.core.middleware import reset_rate_limits
 from app.core.security import (
     CSRF_COOKIE,
     CSRF_HEADER,
@@ -66,7 +67,15 @@ def _purge(session) -> None:
 
 @pytest.fixture(autouse=True)
 def clean_slate():
-    """Remove test rows before and after every test, so order never matters."""
+    """Remove test rows before and after every test, so order never matters.
+
+    The rate limiter's counters are cleared too. They are process-global and
+    would otherwise leak between cases: a suite that books thirty rooms in two
+    seconds is nothing like a person doing it, and the limiter would rightly
+    refuse the later tests. test_hardening drives the limiter to 429 inside a
+    single test, which is where that rule belongs.
+    """
+    reset_rate_limits()
     session = SessionLocal()
     try:
         _purge(session)
@@ -74,6 +83,7 @@ def clean_slate():
         _purge(session)
     finally:
         session.close()
+        reset_rate_limits()
 
 
 @pytest.fixture()

@@ -100,6 +100,18 @@ ATTENDEE_NOT_IN_DIRECTORY = (
 BAD_DATE = "That is not a date NM Meet understands. Use the date picker."
 BAD_TIME = "That is not a time NM Meet understands. Use the clock picker."
 
+# Rate limiting. Section 10's rule applies: say what to do next.
+TOO_MANY_REQUESTS = (
+    "That is a lot of bookings at once. Wait a moment and try again."
+)
+
+# The catch-all. A stack trace never reaches a user; the request id does, so
+# somebody can find the real error in the logs.
+UNEXPECTED_ERROR = (
+    "Something went wrong at our end and the booking was not changed. "
+    "Try again, and quote reference {request_id} if it keeps happening."
+)
+
 
 # =============================================================================
 # Permissions and lifecycle - spec section 9
