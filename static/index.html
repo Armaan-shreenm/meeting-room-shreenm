@@ -4,12 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#17171C">
+<meta name="author" content="Armaan — Team Digital Transformation">
+<meta name="application-name" content="NM Meet">
 <title>NM Meet - Mumbai</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- ==========================================================================
+     NM Meet · meeting room booking for Shree NM, Mumbai branch.
+     Designed and developed by Armaan — Team Digital Transformation.
+     ========================================================================== -->
 <style>
 /* ==========================================================================
    NM Meet - one brand colour (#F5A300) with a warm neutral ground.
@@ -18,6 +24,8 @@
    the booking panel becomes a bottom sheet.
    ========================================================================== */
 :root{
+  /* Build credit. */
+  --built-by:"Armaan — Team Digital Transformation";
   --brand:#F5A300;
   --brand-600:#DB9100;
   --brand-200:#FFE2A6;
@@ -104,7 +112,7 @@ button{background:none;border:0;padding:0;cursor:pointer;appearance:none;
 .dlbl span{display:block;font-size:11px;color:var(--muted);margin-top:1px}
 .dlbl span.is-today{color:var(--brand-600);font-weight:600}
 
-.pop{position:absolute;top:calc(100% + 8px);left:0;z-index:35;width:288px;
+.pop{position:absolute;top:calc(100% + 8px);left:0;z-index:35;width:316px;
   background:var(--card);border:1px solid var(--ink);border-radius:var(--r-lg);
   padding:13px;
   opacity:0;visibility:hidden;transform:translateY(-6px) scale(.98);
@@ -234,9 +242,9 @@ button{background:none;border:0;padding:0;cursor:pointer;appearance:none;
 
 /* ---------- calendar ---------- */
 .cal{border:1px solid var(--line);border-radius:var(--r);padding:14px;background:var(--card)}
-.calhead{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
+.calhead{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-bottom:6px}
 .calhead span{text-align:center;font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.04em}
-.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.calgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
 .day{aspect-ratio:1;border-radius:var(--r-sm);display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:1px;font-size:14px;font-weight:500;color:var(--ink);
   border:1.5px solid transparent;transition:.16s var(--ease);position:relative}
@@ -244,8 +252,13 @@ button{background:none;border:0;padding:0;cursor:pointer;appearance:none;
 .day:disabled{color:#C7C2B9;cursor:not-allowed}
 .day.free:hover{background:var(--sunk);border-color:var(--ink-2)}
 .day[aria-pressed="true"]{background:var(--brand);color:#241800;font-weight:700;border-color:var(--ink)}
-.day em{font-style:normal;font-size:9px;font-weight:600;letter-spacing:.03em;opacity:.75}
+.day em{font-style:normal;font-size:8.5px;font-weight:600;line-height:1;opacity:.75;
+  max-width:100%;overflow:hidden;white-space:nowrap}
 .day.closed em{color:var(--no);opacity:.9}
+/* Outside the booking window. Still openable - the grid shows any day read
+   only - but it must never read as bookable. Same weight as a disabled day. */
+.day.viewonly{color:#C7C2B9}
+.day.viewonly:hover{background:var(--sunk)}
 .day[aria-pressed="true"] em{opacity:.85}
 
 /* ---------- time buttons ---------- */
@@ -361,7 +374,8 @@ button{background:none;border:0;padding:0;cursor:pointer;appearance:none;
 <div class="load" id="load"></div>
 
 <header class="top"><div class="wrap"><div class="topin">
-  <div class="logo"><img class="mark" src="/logo.png" alt="Shree NM"><span class="brand">NM Meet</span></div>
+  <div class="logo"><img class="mark" src="/logo.png" alt="Shree NM"
+         title="NM Meet — developed by Armaan, Team Digital Transformation"><span class="brand">NM Meet</span></div>
   <span class="sp"></span>
   <span class="branchlbl">Mumbai branch</span>
 </div></div></header>
@@ -438,7 +452,7 @@ let ME='';
 const DEPT_ID={}, DIR_ID={};
 
 let OPEN=9*60, SHUT=20*60, STEP=30, MINLEN=30, MAXLEN=240;
-let LAST_DATE=null, CLOSED_DAYS=[0];
+let LAST_DATE=null, CLOSED_DAYS=[0], ADVANCE=7;
 let SLOTS=[];
 const rebuildSlots=()=>{SLOTS=[];for(let m=OPEN;m<SHUT;m+=STEP)SLOTS.push(m);};
 rebuildSlots();
@@ -520,6 +534,7 @@ async function loadDay(ds,force){
   OPEN=hhmm(a.open_time); SHUT=hhmm(a.close_time);
   STEP=a.slot_minutes; MINLEN=a.min_booking_minutes; MAXLEN=a.max_booking_minutes;
   LAST_DATE=a.last_bookable_date; CLOSED_DAYS=a.closed_weekdays;
+  ADVANCE=a.max_advance_days;
   rebuildSlots();
   if(!ROOMS.length) ROOMS=a.rooms.map(r=>({id:r.id,n:r.name,v:r.colour_var,min:r.min_people}));
   bookings=bookings.filter(b=>b.date!==ds);
@@ -551,6 +566,9 @@ async function boot(){
 function render(){
   const d=cursor, ds=iso(d), m=nowM();
   const shut=dayShut(ds), info=dayInfo[ds]||{};
+  /* Past and closed days were already dead. A day beyond the booking window
+     is too: the server refuses it, so the grid must not offer it. */
+  const far=beyondWindow(ds), dead=shut||far;
 
   document.getElementById('dBig').textContent=
     d.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});
@@ -570,6 +588,10 @@ function render(){
       : info.reason==='past'
         ? `<b>Past.</b> This day has been and gone.`
         : `<b>Closed on Sundays.</b> Pick another day to book a room.`;
+  } else if(far){
+    banner.classList.add('on');
+    banner.innerHTML = `<b>Too far ahead.</b> You can book today and the next `+
+      `${ADVANCE-1} days only. This day can be viewed, not booked.`;
   } else banner.classList.remove('on');
 
   const sheet=document.getElementById('sheet');
@@ -598,11 +620,11 @@ function render(){
 
   ROOMS.forEach(r=>{
     const col=document.createElement('div');
-    col.className='col'+(shut?' closed':'');
+    col.className='col'+(dead?' closed':'');
     col.style.height=(hours.length*hh)+'px';
 
     SLOTS.forEach(mm=>{
-      const gone = shut || isPast(ds) || (isToday(ds)&&mm<m) || blockedAt(r.id,ds,mm);
+      const gone = dead || isPast(ds) || (isToday(ds)&&mm<m) || blockedAt(r.id,ds,mm);
       const s=document.createElement('button');
       s.className='slot'+(gone?' gone':'');
       s.style.top=px(mm)+'px';
@@ -945,13 +967,15 @@ function paintPop(){
     const d=new Date(y,mo,dn), ds=iso(d);
     const closed=weekendShut(ds);
     const bookable=!closed&&!isPast(ds)&&!beyondWindow(ds);
-    html+=`<button class="day ${bookable?'free':''} ${closed?'closed':''}" data-d="${ds}"
-      aria-pressed="${iso(cursor)===ds}">${dn}${closed?'<em>Closed</em>':''}</button>`;
+    html+=`<button class="day ${bookable?'free':'viewonly'} ${closed?'closed':''}" data-d="${ds}"
+      aria-pressed="${iso(cursor)===ds}"${bookable?'':' title="Outside the booking window - view only"'}
+      >${dn}${closed?'<em>Closed</em>':''}</button>`;
   }
   document.getElementById('popGrid').innerHTML=html;
   document.getElementById('popFoot').textContent=
-    `Any date can be viewed. Booking is open until ${
-      LAST_DATE?fromIso(LAST_DATE).toLocaleDateString('en-IN',{day:'numeric',month:'short'}):' - '}.`;
+    `Bookable up to ${
+      LAST_DATE?fromIso(LAST_DATE).toLocaleDateString('en-IN',{day:'numeric',month:'short'}):' - '
+    }. Greyed dates can be viewed, not booked.`;
 
   document.getElementById('popGrid').querySelectorAll('.day[data-d]').forEach(b=>
     b.addEventListener('click',()=>{
@@ -990,6 +1014,10 @@ function toast(msg,bad){
   el.textContent=msg; el.classList.toggle('bad',!!bad); el.classList.add('on');
   clearTimeout(tt); tt=setTimeout(()=>el.classList.remove('on'),bad?6000:4500);
 }
+
+console.log("%cNM Meet%c  developed by Armaan — Team Digital Transformation",
+  "background:#F5A300;color:#241800;font-weight:700;padding:2px 8px;border-radius:4px",
+  "color:#8C8880");
 
 boot();
 setInterval(()=>{ if(!document.querySelector('.pan.on')) refresh(); },60000);
