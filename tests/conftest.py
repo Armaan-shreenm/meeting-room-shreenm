@@ -16,6 +16,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 
 from app.config import settings
+from app.core.security import (
+    CSRF_COOKIE,
+    CSRF_HEADER,
+    SESSION_COOKIE,
+    issue_session,
+)
 from app.database import SessionLocal
 from app.main import app
 from app.models import AuditLog, Booking, Department, Holiday, Room, User
@@ -117,9 +123,22 @@ def rooms(db) -> dict[str, Room]:
     return rows
 
 
+# Any value works for the double-submit check, as long as cookie and header
+# agree - the server compares them to each other, not to anything stored.
+TEST_CSRF = "pytest-csrf-token"
+
+
 def headers_for(user: User) -> dict[str, str]:
-    """Act as this directory member. Phase 5 replaces the header with a session."""
-    return {"X-User-Email": user.email}
+    """Act as this directory member, with a real signed session.
+
+    Phase 5 replaced the X-User-Email header with a session cookie. Sending the
+    cookies explicitly keeps every existing test calling headers_for() unchanged.
+    """
+    token = issue_session(user.id)
+    return {
+        "Cookie": f"{SESSION_COOKIE}={token}; {CSRF_COOKIE}={TEST_CSRF}",
+        CSRF_HEADER: TEST_CSRF,
+    }
 
 
 # -------------------------------------------------------------------- dates

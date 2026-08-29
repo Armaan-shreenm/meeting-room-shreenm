@@ -153,9 +153,22 @@ BAD_RESPONSE = "Answer with ACCEPTED or DECLINED."
 # =============================================================================
 # The specification does not describe authentication. These follow its rule.
 
-ACTOR_NOT_IDENTIFIED = (
-    "You are not signed in. Send your directory email in the X-User-Email header."
+ACTOR_NOT_IDENTIFIED = "Please sign in to NM Meet to book or change a room."
+
+BAD_CREDENTIALS = (
+    "That email and password do not match an NM Meet account. Check them and "
+    "try again, or ask an administrator to reset your password."
 )
+
+NO_PASSWORD_SET = (
+    "No password has been set for {email}. Ask an administrator to set one."
+)
+
+CSRF_FAILED = (
+    "Your session could not be verified. Reload the page and try again."
+)
+
+SIGNED_OUT = "You have been signed out."
 
 ACTOR_UNKNOWN = (
     "{email} is not in the company directory. Ask reception or an administrator "

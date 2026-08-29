@@ -23,7 +23,9 @@ import sys
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.logging import configure_logging
+from app.core.security import generate_password, hash_password
 from app.database import SessionLocal
 from app.models import Department, Room, User, UserRole
 
@@ -120,14 +122,22 @@ def seed_rooms(db: Session) -> None:
 
 
 def seed_users(db: Session, departments: dict[str, Department]) -> None:
-    """Insert any directory member whose email is not already present."""
+    """Insert any directory member whose email is not already present.
+
+    Each new account gets a password. SEED_PASSWORD sets the same one for
+    everybody, which is what you want on a laptop; leave it unset and each
+    account gets its own random one. Either way the passwords are printed once,
+    here, and stored only as bcrypt hashes. Nothing is ever written to a file.
+    """
     existing_emails = set(db.scalars(select(User.email)).all())
+    issued: list[tuple[str, str]] = []
 
     for full_name, local_part, department_name, role in DIRECTORY:
         email = f"{local_part}@{EMAIL_DOMAIN}"
         if email in existing_emails:
             continue
 
+        password = settings.seed_password or generate_password()
         db.add(
             User(
                 full_name=full_name,
@@ -135,11 +145,24 @@ def seed_users(db: Session, departments: dict[str, Department]) -> None:
                 department_id=departments[department_name].id,
                 role=role,
                 is_active=True,
+                password_hash=hash_password(password),
             )
         )
+        issued.append((email, password))
         logger.info("Seeding user %s <%s> as %s", full_name, email, role.value)
 
     db.flush()
+
+    if issued:
+        # Printed once, to stdout, never committed and never stored in clear.
+        print("
+" + "=" * 66)
+        print("  NM Meet sign-in details - shown once, not stored anywhere")
+        print("=" * 66)
+        for email, password in issued:
+            print(f"  {email:<34} {password}")
+        print("=" * 66 + "
+", flush=True)
 
 
 def run() -> None:

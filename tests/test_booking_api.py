@@ -46,8 +46,8 @@ def post_booking(client, user, **kwargs):
 # =============================================================================
 
 
-def test_rooms_endpoint_returns_five_in_display_order(client):
-    response = client.get("/api/rooms")
+def test_rooms_endpoint_returns_five_in_display_order(client, users):
+    response = client.get("/api/rooms", headers=headers_for(users["priya"]))
     assert response.status_code == 200
     body = response.json()
     assert [r["id"] for r in body] == ["spark", "power", "pulse", "ignite", "switch"]
@@ -55,15 +55,15 @@ def test_rooms_endpoint_returns_five_in_display_order(client):
     assert body[0]["colour_var"] == "--spark"
 
 
-def test_departments_endpoint(client):
-    response = client.get("/api/departments")
+def test_departments_endpoint(client, users):
+    response = client.get("/api/departments", headers=headers_for(users["priya"]))
     assert response.status_code == 200
     names = {d["name"] for d in response.json()}
     assert {"Sales", "HR", "Finance", "Operations", "IT", "Marketing"} <= names
 
 
-def test_directory_returns_only_active_members(client):
-    response = client.get("/api/directory")
+def test_directory_returns_only_active_members(client, users):
+    response = client.get("/api/directory", headers=headers_for(users["priya"]))
     assert response.status_code == 200
     body = response.json()
     assert any(u["email"] == "priya.nair@shreenm.com" for u in body)
@@ -90,7 +90,7 @@ def test_T01_booked_window_is_blocked_on_that_room(
     )
     assert created.status_code == 201, created.text
 
-    availability = client.get(f"/api/availability?date={day.isoformat()}").json()
+    availability = client.get(f"/api/availability?date={day.isoformat()}", headers=headers_for(users["priya"])).json()
     power = next(r for r in availability["rooms"] if r["id"] == "power")
 
     assert len(power["bookings"]) == 1
@@ -113,7 +113,7 @@ def test_T02_other_rooms_are_untouched(client, users, departments, rooms, day):
         conducted_by=users["rahul"].id,
     )
 
-    availability = client.get(f"/api/availability?date={day.isoformat()}").json()
+    availability = client.get(f"/api/availability?date={day.isoformat()}", headers=headers_for(users["priya"])).json()
 
     for room in availability["rooms"]:
         if room["id"] == "power":
@@ -224,7 +224,8 @@ def test_T05_exit_cap_offers_only_1pm_for_a_1230_entry(
     )
 
     response = client.get(
-        f"/api/availability/exit-cap?room=power&date={day.isoformat()}&entry=12:30"
+        f"/api/availability/exit-cap?room=power&date={day.isoformat()}&entry=12:30",
+        headers=headers_for(users["priya"]),
     )
     assert response.status_code == 200
     body = response.json()
@@ -237,10 +238,11 @@ def test_T05_exit_cap_offers_only_1pm_for_a_1230_entry(
 
 
 def test_exit_cap_without_a_following_booking_is_four_hours(
-    client, rooms, day
+    client, users, rooms, day
 ):
     response = client.get(
-        f"/api/availability/exit-cap?room=pulse&date={day.isoformat()}&entry=09:00"
+        f"/api/availability/exit-cap?room=pulse&date={day.isoformat()}&entry=09:00",
+        headers=headers_for(users["priya"]),
     )
     assert response.status_code == 200
     body = response.json()
@@ -248,9 +250,10 @@ def test_exit_cap_without_a_following_booking_is_four_hours(
     assert body["limited_by"] == "max_length"
 
 
-def test_exit_cap_near_closing_is_capped_by_closing_time(client, rooms, day):
+def test_exit_cap_near_closing_is_capped_by_closing_time(client, users, rooms, day):
     response = client.get(
-        f"/api/availability/exit-cap?room=pulse&date={day.isoformat()}&entry=18:00"
+        f"/api/availability/exit-cap?room=pulse&date={day.isoformat()}&entry=18:00",
+        headers=headers_for(users["priya"]),
     )
     assert response.status_code == 200
     body = response.json()
@@ -588,9 +591,9 @@ def test_sunday_is_closed(client, users, departments, rooms):
     assert response.json()["detail"] == messages.OFFICE_CLOSED
 
 
-def test_availability_reports_sunday_as_closed(client):
+def test_availability_reports_sunday_as_closed(client, users):
     sunday = next_sunday(offset=1)
-    body = client.get(f"/api/availability?date={sunday.isoformat()}").json()
+    body = client.get(f"/api/availability?date={sunday.isoformat()}", headers=headers_for(users["priya"])).json()
     assert body["closed"] is True
     assert body["closed_reason"] == "weekly_closure"
     # The grid still gets all five rooms so it can render itself greyed out.
@@ -616,7 +619,7 @@ def test_declared_holiday_is_closed(client, db, users, departments, rooms):
     assert response.status_code == 400
     assert response.json()["detail"] == messages.OFFICE_CLOSED
 
-    body = client.get(f"/api/availability?date={holiday_date.isoformat()}").json()
+    body = client.get(f"/api/availability?date={holiday_date.isoformat()}", headers=headers_for(users["priya"])).json()
     assert body["closed"] is True
     assert body["closed_reason"] == "holiday"
     assert body["closed_detail"] == f"{TEST_TITLE_PREFIX} Founders Day"

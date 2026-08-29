@@ -196,6 +196,8 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;paddin
 <header class="top"><div class="wrap"><div class="topin">
   <span class="bolt">⌁</span><span class="brand">NM Meet</span>
   <span class="sp"></span><span class="stamp" id="stamp"></span>
+  <span class="stamp" id="who"></span>
+  <button class="stamp" id="signout" style="text-decoration:underline">SIGN OUT</button>
 </div></div></header>
 
 <div class="wrap">
@@ -313,17 +315,30 @@ function freeCountFor(rid,ds){
 let ME_EMAIL=null;
 const OFFLINE='NM Meet is not reachable right now. Check your connection and try again.';
 
+/* The session is an HttpOnly cookie the browser sends on its own. The CSRF
+   token is a second, script-readable cookie echoed back in a header on every
+   state-changing request - the double-submit pattern. */
+const cookie=name=>document.cookie.split('; ')
+  .map(c=>c.split('=')).find(([k])=>k===name)?.[1]??null;
+
+function toLogin(){
+  const next=encodeURIComponent(location.pathname+location.search);
+  location.replace(`/login.html?next=${next}`);
+}
+
 async function api(path,opts={}){
+  const unsafe=opts.method&&!['GET','HEAD','OPTIONS'].includes(opts.method);
   let res;
   try{
-    res=await fetch(`/api${path}`,{...opts,headers:{
+    res=await fetch(`/api${path}`,{...opts,credentials:'same-origin',headers:{
       'Content-Type':'application/json',
-      ...(ME_EMAIL?{'X-User-Email':ME_EMAIL}:{}),
+      ...(unsafe?{'X-CSRF-Token':cookie('nm_csrf')||''}:{}),
       ...(opts.headers||{})}});
   }catch(e){ const err=new Error(OFFLINE); err.status=0; throw err; }
   let body=null;
   try{ body=await res.json(); }catch(e){}
   if(!res.ok){
+    if(res.status===401){ toLogin(); }
     const err=new Error((body&&body.detail)||OFFLINE);
     err.status=res.status; err.body=body; throw err;
   }
@@ -352,8 +367,9 @@ async function refresh(){
 
 async function boot(){
   try{
-    const me=await api('/me');
+    const me=await api('/me');   /* a 401 here sends us to the login screen */
     ME_EMAIL=me.email; ME=me.full_name;
+    document.getElementById('who').textContent=me.full_name.toUpperCase();
     const [rs,ds,dr]=await Promise.all([api('/rooms'),api('/departments'),api('/directory')]);
     ROOMS=rs.map(r=>({id:r.id,n:r.name,v:r.colour_var}));
     DEPTS=ds.map(d=>d.name); ds.forEach(d=>DEPT_ID[d.name]=d.id);
@@ -745,6 +761,11 @@ document.getElementById('prev').addEventListener('click',()=>{cursor=addDays(cur
 document.getElementById('next').addEventListener('click',()=>{cursor=addDays(cursor,1);refresh();});
 document.getElementById('today').addEventListener('click',()=>{cursor=new Date();cursor.setHours(0,0,0,0);refresh();});
 document.getElementById('newBtn').addEventListener('click',()=>startWizard({date:iso(cursor)}));
+
+document.getElementById('signout').addEventListener('click',async()=>{
+  try{ await api('/auth/logout',{method:'POST'}); }catch(e){}
+  location.replace('/login.html');
+});
 
 let tt;
 function toast(msg){

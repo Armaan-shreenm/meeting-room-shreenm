@@ -11,6 +11,10 @@ pydantic==2.10.4
 pydantic-settings==2.7.0
 email-validator==2.2.0
 
+# ---- authentication (phase 5) ----
+bcrypt==4.2.1
+itsdangerous==2.2.0
+
 python-dotenv==1.0.1
 tzdata==2024.2
 

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,6 +39,13 @@ class User(Base):
         default=UserRole.EMPLOYEE,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    # bcrypt hash. Nullable: a directory member who has never had a password set
+    # simply cannot sign in, which is the safe default for a seeded row.
+    password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     department: Mapped["Department | None"] = relationship(back_populates="users")
     bookings_made: Mapped[list["Booking"]] = relationship(

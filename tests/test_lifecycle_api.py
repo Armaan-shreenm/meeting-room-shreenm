@@ -191,7 +191,7 @@ def test_T10_cancel_frees_the_window_and_notifies(
     assert cancelled.json()["status"] == "CANCELLED"
 
     # The window is free for everyone, immediately.
-    availability = client.get(f"/api/availability?date={day.isoformat()}").json()
+    availability = client.get(f"/api/availability?date={day.isoformat()}", headers=headers_for(users["priya"])).json()
     switch = next(r for r in availability["rooms"] if r["id"] == "switch")
     assert switch["bookings"] == []
 
@@ -706,6 +706,6 @@ def test_declining_does_not_cancel_the_meeting(client, db, users, booking, day):
     row = db.scalar(select(Booking).where(Booking.id == uuid.UUID(booking["id"])))
     assert row.status == BookingStatus.CONFIRMED
 
-    availability = client.get(f"/api/availability?date={day.isoformat()}").json()
+    availability = client.get(f"/api/availability?date={day.isoformat()}", headers=headers_for(users["priya"])).json()
     switch = next(r for r in availability["rooms"] if r["id"] == "switch")
     assert len(switch["bookings"]) == 1

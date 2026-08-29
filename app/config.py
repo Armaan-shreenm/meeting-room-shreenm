@@ -46,6 +46,16 @@ class Settings(BaseSettings):
     # Render's managed Postgres closes idle connections; recycle before it does.
     db_pool_recycle_seconds: int = 1800
 
+    # -------------------------------------------------------------- security
+    # Signs the session cookie. MUST be set in production - a rotated value logs
+    # everyone out, and a leaked one lets anybody forge a session. Render
+    # generates this automatically via generateValue in render.yaml.
+    secret_key: str = "dev-only-not-a-secret-change-me"
+    session_max_age_seconds: int = 60 * 60 * 12   # one working day
+    bcrypt_rounds: int = 12
+    # Printed once by scripts/seed.py when it sets a password it generated.
+    seed_password: str = ""
+
     # ---------------------------------------------------------- actor identity
     # Real authentication arrives in Phase 5. Until then the actor is resolved
     # from the X-User-Email request header, and this is who it falls back to
@@ -141,6 +151,17 @@ class Settings(BaseSettings):
                 "DATABASE_URL must point at PostgreSQL. NM Meet relies on the "
                 "btree_gist EXCLUDE constraint to prevent double bookings and "
                 "cannot run on any other database engine."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _require_real_secret_in_production(self) -> "Settings":
+        """A production deploy signing sessions with the shipped default would
+        let anyone who has read this repository forge a session for any user."""
+        if self.is_production and self.secret_key == "dev-only-not-a-secret-change-me":
+            raise ValueError(
+                "SECRET_KEY must be set to a real random value in production. "
+                "render.yaml generates one; set it in the dashboard otherwise."
             )
         return self
 

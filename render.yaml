@@ -62,13 +62,20 @@ services:
       - key: PYTHONUNBUFFERED
         value: "1"
 
-      # ---- actor identity ---------------------------------------------------
-      # Real authentication is Phase 5. Until then app/core/auth.py falls back to
-      # this address when a request carries no X-User-Email header. No Phase 1
-      # endpoint reads it, so it may be left blank now — but it MUST be set to a
-      # deliberate value before the Phase 2 booking endpoints go live, or an
-      # unauthenticated request will act as whoever this names.
-      - key: DEV_USER_EMAIL
+      # ---- authentication ---------------------------------------------------
+      # Signs the session cookie. Render generates a strong value on first
+      # deploy and keeps it; it is never in git. Rotating it signs everyone out.
+      - key: SECRET_KEY
+        generateValue: true
+      # One working day.
+      - key: SESSION_MAX_AGE_SECONDS
+        value: "43200"
+      # Sign-in passwords for seeded accounts. Leave unset so each account gets
+      # its own random password, printed once in the deploy log.
+      - key: SEED_PASSWORD
+        sync: false
+      # Used to build the "view or cancel" link in every notification.
+      - key: PUBLIC_BASE_URL
         sync: false
 
       # ---- branch and locale ------------------------------------------------
