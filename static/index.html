@@ -53,7 +53,8 @@ body{
   min-height:100dvh;display:flex;flex-direction:column;
 }
 button,input,select,textarea{font:inherit;color:inherit}
-button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button{background:none;border:0;padding:0;cursor:pointer;appearance:none;
+  -webkit-appearance:none;-webkit-tap-highlight-color:transparent}
 :focus-visible{outline:2.5px solid var(--brand);outline-offset:2px;border-radius:4px}
 .wrap{width:100%;max-width:1240px;margin:0 auto;padding:0 var(--gut)}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -124,7 +125,10 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 /* ---------- board ---------- */
 .board{background:var(--card);border:1px solid var(--ink);border-radius:var(--r-lg);
   overflow:hidden;margin-bottom:28px}
-.scroll{overflow:auto;position:relative;scrollbar-width:thin;overscroll-behavior:contain}
+/* Sideways only. The grid is as tall as its content, so it never needs a
+   vertical scrollbar - and it must not become a scroll container that swallows
+   the wheel, which is what locked the page whenever the pointer was over it. */
+.scroll{overflow-x:auto;overflow-y:hidden;position:relative;scrollbar-width:thin}
 .scroll::-webkit-scrollbar{width:10px;height:10px}
 .scroll::-webkit-scrollbar-thumb{background:#D6D1C8;border-radius:20px;border:3px solid var(--card)}
 
@@ -157,10 +161,12 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
   background:repeating-linear-gradient(to bottom,
     transparent 0, transparent calc(var(--hour-h) - 1px),
     var(--line) calc(var(--hour-h) - 1px), var(--line) var(--hour-h))}
-.col.shut{background-color:var(--sunk)}
+/* Named `closed`, not `shut`: `.shut` is the panel close button, and reusing
+   the name gave every closed column its 34px circular box. */
+.col.closed{background-color:var(--sunk)}
 
 /* Invisible half-hour hit areas: no visible line, full 30-minute precision. */
-.slot{position:absolute;left:0;right:0;height:calc(var(--hour-h) / 2);
+.slot{position:absolute;left:0;width:100%;height:calc(var(--hour-h) / 2);
   transition:background .14s var(--ease)}
 .slot:not(.gone):hover{background:var(--brand-50);cursor:pointer}
 .slot.gone{cursor:default}
@@ -239,7 +245,7 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .day.free:hover{background:var(--sunk);border-color:var(--ink-2)}
 .day[aria-pressed="true"]{background:var(--brand);color:#241800;font-weight:700;border-color:var(--ink)}
 .day em{font-style:normal;font-size:9px;font-weight:600;letter-spacing:.03em;opacity:.75}
-.day.shut em{color:var(--no);opacity:.9}
+.day.closed em{color:var(--no);opacity:.9}
 .day[aria-pressed="true"] em{opacity:.85}
 
 /* ---------- time buttons ---------- */
@@ -337,7 +343,6 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
   .dlbl{flex:1;min-width:0}
   .cta{width:100%;justify-content:center;order:3}
   .tbtn{padding:0 12px}
-  .scroll{max-height:none}
   .sheet{min-width:600px}
   /* bottom sheet */
   .pan{top:auto;left:0;right:0;bottom:0;width:100%;height:92dvh;
@@ -593,7 +598,7 @@ function render(){
 
   ROOMS.forEach(r=>{
     const col=document.createElement('div');
-    col.className='col'+(shut?' shut':'');
+    col.className='col'+(shut?' closed':'');
     col.style.height=(hours.length*hh)+'px';
 
     SLOTS.forEach(mm=>{
@@ -717,7 +722,7 @@ function step2(B){
       const closed=weekendShut(ds), past=isPast(ds), far=beyondWindow(ds);
       const usable=!closed&&!past&&!far;
       const label=closed?'<em>Closed</em>':'';
-      html+=`<button class="day ${usable?'free':''} ${closed?'shut':''}" data-d="${ds}"
+      html+=`<button class="day ${usable?'free':''} ${closed?'closed':''}" data-d="${ds}"
         aria-pressed="${W.date===ds}" ${usable?'':'disabled'}>${dnum}${label}</button>`;
     }
     return html;
@@ -940,7 +945,7 @@ function paintPop(){
     const d=new Date(y,mo,dn), ds=iso(d);
     const closed=weekendShut(ds);
     const bookable=!closed&&!isPast(ds)&&!beyondWindow(ds);
-    html+=`<button class="day ${bookable?'free':''} ${closed?'shut':''}" data-d="${ds}"
+    html+=`<button class="day ${bookable?'free':''} ${closed?'closed':''}" data-d="${ds}"
       aria-pressed="${iso(cursor)===ds}">${dn}${closed?'<em>Closed</em>':''}</button>`;
   }
   document.getElementById('popGrid').innerHTML=html;
