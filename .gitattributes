@@ -1,0 +1,4 @@
+# start.sh runs on Linux. A CRLF shebang breaks the container start command,
+# so force LF on shell scripts regardless of core.autocrlf on Windows.
+* text=auto
+*.sh text eol=lf

@@ -1,0 +1,136 @@
+# =============================================================================
+# NM Meet — Render Blueprint.
+#
+# One web service and one managed PostgreSQL database, both on free plans.
+# Everything below is free-tier compatible: no preDeployCommand, no disks, no
+# private services, no cron jobs, one worker.
+#
+# This file must sit at the root of the GitHub repository for Render to find it.
+# =============================================================================
+
+databases:
+  - name: nm-meet-db
+    databaseName: nm_meet
+    user: nm_meet
+    plan: free
+    # Singapore is Render's closest region to Mumbai. The web service below must
+    # be in the same region or it cannot reach the database on the internal network.
+    region: singapore
+    postgresMajorVersion: "16"
+    ipAllowList: []          # internal connections only; nothing exposed publicly
+
+services:
+  - type: web
+    name: nm-meet
+    runtime: python
+    plan: free
+    region: singapore
+    branch: main
+    autoDeploy: true
+
+    buildCommand: "pip install --upgrade pip && pip install -r requirements.txt"
+
+    # Migrations, then the seed, then the server. start.sh exits non-zero if the
+    # migration fails, which fails the deploy instead of serving a stale schema.
+    # Invoked through bash so a lost executable bit on a Windows checkout cannot
+    # break the deploy.
+    startCommand: "bash ./start.sh"
+
+    # Render polls this. It answers 503 when the database is unreachable, so a
+    # deploy that cannot see its database never goes live.
+    healthCheckPath: /api/health
+
+    envVars:
+      # ---- wired from the managed database above ----------------------------
+      # Render supplies this as postgres://... ; config.py rewrites the scheme
+      # to postgresql+psycopg2:// before SQLAlchemy ever sees it.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nm-meet-db
+          property: connectionString
+
+      # ---- runtime ----------------------------------------------------------
+      - key: ENVIRONMENT
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: LOG_LEVEL
+        value: INFO
+      - key: SQL_ECHO
+        value: "false"
+      # Log straight to stdout, unbuffered. The filesystem is ephemeral.
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+      # ---- actor identity ---------------------------------------------------
+      # Real authentication is Phase 5. Until then app/core/auth.py falls back to
+      # this address when a request carries no X-User-Email header. No Phase 1
+      # endpoint reads it, so it may be left blank now — but it MUST be set to a
+      # deliberate value before the Phase 2 booking endpoints go live, or an
+      # unauthenticated request will act as whoever this names.
+      - key: DEV_USER_EMAIL
+        sync: false
+
+      # ---- branch and locale ------------------------------------------------
+      - key: TZ
+        value: Asia/Kolkata
+      - key: BRANCH_NAME
+        value: Mumbai
+
+      # ---- booking rules (spec sections 3 and 4, section 13 as settled) ------
+      - key: OPEN_TIME
+        value: "09:00"
+      - key: CLOSE_TIME
+        value: "20:00"
+      - key: SLOT_MINUTES
+        value: "30"
+      - key: MIN_BOOKING_MINUTES
+        value: "30"
+      - key: MAX_BOOKING_MINUTES
+        value: "240"
+      - key: MAX_ADVANCE_DAYS
+        value: "90"
+      - key: NO_SHOW_RELEASE_MINUTES
+        value: "15"
+      # Monday=0 ... Sunday=6. D-03: Monday to Saturday working, Sunday closed.
+      - key: CLOSED_WEEKDAYS
+        value: "[6]"
+
+      # ---- notifications ----------------------------------------------------
+      # Left off until real SMTP credentials exist. SMTP_USER and SMTP_PASSWORD
+      # are marked sync:false so they are entered in the Render dashboard and are
+      # never written into this file or into git.
+      - key: NOTIFICATIONS_ENABLED
+        value: "false"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_STARTTLS
+        value: "true"
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: SMTP_FROM_NAME
+        value: NM Meet
+      - key: RECEPTION_EMAIL
+        sync: false
+      - key: MUMBAI_GROUP_EMAIL
+        sync: false
+      - key: DAILY_SUMMARY_HOUR
+        value: "8"
+      - key: CALENDAR_INVITE_ENABLED
+        value: "true"
+
+# -----------------------------------------------------------------------------
+# NOT DEFINED HERE, ON PURPOSE
+#
+# D-01 settles the Mumbai branch list on a daily 8 am summary. That will be a
+# separate Render Cron Job, added to this blueprint in the phase that builds
+# notifications. It is not an APScheduler thread inside the web service: this
+# service sleeps on the free plan and a background thread cannot be relied on to
+# be alive at 08:00 IST.
+# -----------------------------------------------------------------------------

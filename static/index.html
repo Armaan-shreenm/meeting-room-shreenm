@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NM Meet — Mumbai</title>
+<style>
+  :root { --panel:#15161A; --paper:#E9EDF2; --ink:#16181C; --muted:#878D97;
+          --rule:#D8DEE6; --brass:#F5A300; --card:#FFF; }
+  * { box-sizing:border-box }
+  html, body { margin:0; padding:0 }
+  body { background:var(--paper); color:var(--ink); min-height:100vh;
+         font-family:system-ui, -apple-system, "Segoe UI", sans-serif;
+         font-size:15px; line-height:1.45; display:flex; flex-direction:column }
+  header { background:var(--panel); color:#E8E6E1; padding:15px 28px;
+           display:flex; align-items:center; gap:11px }
+  .bolt { width:21px; height:21px; border-radius:4px; background:var(--brass);
+          display:grid; place-items:center; color:#171208; font-size:12px; font-weight:700 }
+  .brand { font-weight:700; font-size:19px; letter-spacing:.09em; text-transform:uppercase }
+  main { flex:1; display:grid; place-items:center; padding:40px 28px }
+  .card { background:var(--card); border:1px solid var(--rule); max-width:560px;
+          padding:32px 34px }
+  h1 { margin:0 0 10px; font-size:22px; letter-spacing:.02em }
+  p { margin:0 0 14px; color:#4A5058 }
+  code { background:#EDF1F6; border:1px solid var(--rule); border-radius:2px;
+         padding:1px 6px; font-size:13px }
+  .note { border-left:3px solid var(--brass); background:#FFFCF5;
+          padding:12px 15px; font-size:13.5px; color:#4A5058 }
+  footer { padding:18px 28px; color:var(--muted); font-size:12px }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="bolt">&#8961;</span>
+  <span class="brand">NM Meet</span>
+</header>
+
+<main>
+  <div class="card">
+    <h1>Deployment placeholder</h1>
+    <p>
+      The API is live. The approved NM Meet interface is cloned into this
+      directory in a later phase and served from this same origin, so it will
+      call the API with relative paths only.
+    </p>
+    <p>
+      Check the service with <code>/api/health</code>, or read the generated
+      documentation at <code>/api/docs</code>.
+    </p>
+    <div class="note">
+      Phase 1 is foundation and deployability only. Booking, availability,
+      notifications and authentication are not built yet.
+    </div>
+  </div>
+</main>
+
+<footer>Shree NM &middot; Mumbai branch</footer>
+
+</body>
+</html>

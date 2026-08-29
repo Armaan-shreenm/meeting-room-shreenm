@@ -1,0 +1,63 @@
+# ---- secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# ---- conda / anaconda artefacts ----
+.conda/
+conda-meta/
+envs/
+*.conda
+*.tar.bz2
+environment.local.yml
+
+# ---- notebooks ----
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ---- test / tooling caches ----
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# ---- IDE / editor ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.spyproject/
+.spyderproject/
+.ropeproject/
+
+# ---- os ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- local PostgreSQL cluster (scripts/README create this; never commit it) ----
+.pgdata/
+logfile
+
+# ---- never commit a local database or logs; the Render disk is ephemeral ----
+*.sqlite
+*.sqlite3
+*.db
+*.log
+logs/
