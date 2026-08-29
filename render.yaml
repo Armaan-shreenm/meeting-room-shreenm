@@ -78,6 +78,13 @@ services:
      - key: PUBLIC_BASE_URL
         sync: false
 
+      # ---- who is booking ---------------------------------------------------
+      # No sign-in: the host named in the form owns the booking. Set true the
+      # day Google Sign-In is switched on and sessions, CSRF and the ownership
+      # rule all return with no code change.
+      - key: SIGN_IN_REQUIRED
+        value: "false"
+
       # ---- Google Sign-In ---------------------------------------------------
       # Backend complete; the button appears on the login page once these are
       # set. Register the redirect URI in the Google Cloud console to match.

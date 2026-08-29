@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.core import messages
 from app.core import time as timeutil
-from app.core.auth import CurrentUser
+from app.core.auth import Actor
 from app.core.errors import NotFoundError, ValidationError
 from app.database import get_db
 from app.models import Room
@@ -49,7 +49,7 @@ def _parse_time(value: str) -> int:
 )
 def get_availability(
     db: DbSession,
-    actor: CurrentUser,
+    actor: Actor,
     date: Annotated[date_type, Query(description="Local date, YYYY-MM-DD.")],
 ) -> AvailabilityResponse:
     """Per-room bookings and free slot counts for a single local date.
@@ -120,7 +120,7 @@ def get_availability(
 )
 def get_exit_cap(
     db: DbSession,
-    actor: CurrentUser,
+    actor: Actor,
     room: Annotated[str, Query(description="Room slug, e.g. power.")],
     date: Annotated[date_type, Query(description="Local date, YYYY-MM-DD.")],
     entry: Annotated[str, Query(description='Local start, "12:30".')],

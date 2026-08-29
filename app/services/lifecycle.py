@@ -39,6 +39,11 @@ from app.services import audit, notifications, permissions
 logger = logging.getLogger(__name__)
 
 
+def _who(actor: User | None) -> str:
+    """Who to name in a log line. Nobody signs in, so this is often 'anonymous'."""
+    return actor.email if actor is not None else "anonymous"
+
+
 @dataclass
 class BookingEdit:
     """The details that may change. Room, date and time are absent by design."""
@@ -55,7 +60,7 @@ class BookingEdit:
 # ----------------------------------------------------------------- cancel
 
 
-def cancel_booking(db: Session, actor: User, booking: Booking) -> Booking:
+def cancel_booking(db: Session, actor: User | None, booking: Booking) -> Booking:
     """Cancel a booking - spec section 9.
 
     Permitted for the booker, the conductor, reception and admin. An attendee is
@@ -66,7 +71,10 @@ def cancel_booking(db: Session, actor: User, booking: Booking) -> Booking:
     again, and the part that has already gone is unbookable anyway because a
     booking cannot start in the past.
     """
-    if not permissions.can_cancel(actor, booking):
+    # actor is None when nobody signs in: there is nobody to compare against,
+    # so the check is skipped rather than faked. It returns the moment
+    # SIGN_IN_REQUIRED is switched on.
+    if actor is not None and not permissions.can_cancel(actor, booking):
         raise PermissionError_(
             messages.CANNOT_CANCEL.format(owner=booking.booker.full_name)
         )
@@ -90,20 +98,20 @@ def cancel_booking(db: Session, actor: User, booking: Booking) -> Booking:
     # Section 8: a cancellation notice goes to all five recipient groups.
     notifications.notify(db, booking, NotificationEvent.CANCELLED)
 
-    logger.info("Cancelled booking %s by %s", booking.id, actor.email)
+    logger.info("Cancelled booking %s by %s", booking.id, _who(actor))
     return booking
 
 
 # ------------------------------------------------------------------- edit
 
 
-def edit_booking(db: Session, actor: User, booking: Booking, edit: BookingEdit) -> Booking:
+def edit_booking(db: Session, actor: User | None, booking: Booking, edit: BookingEdit) -> Booking:
     """Change the details of a booking - never its room, date or time.
 
     Fires CHANGED. Attendee churn is reported per person: someone newly added is
     told BOOKED, someone removed is told CANCELLED, everyone else CHANGED.
     """
-    if not permissions.can_edit(actor, booking):
+    if actor is not None and not permissions.can_edit(actor, booking):
         raise PermissionError_(
             messages.CANNOT_EDIT.format(owner=booking.booker.full_name)
         )
@@ -159,7 +167,7 @@ def edit_booking(db: Session, actor: User, booking: Booking, edit: BookingEdit) 
     else:
         notifications.notify(db, booking, NotificationEvent.CHANGED)
 
-    logger.info("Edited booking %s by %s", booking.id, actor.email)
+    logger.info("Edited booking %s by %s", booking.id, _who(actor))
     return booking
 
 
@@ -212,13 +220,17 @@ def _apply_attendees(
 
 
 def set_attendee_response(
-    db: Session, actor: User, booking: Booking, response: AttendeeResponse
+    db: Session, actor: User | None, booking: Booking, response: AttendeeResponse
 ) -> BookingAttendee:
     """An attendee accepting or declining their own place - spec section 9.
 
     Record-keeping only: no notification fires and nothing on the grid changes.
     An attendee can only ever change their own row.
     """
+    if actor is None:
+        # Nobody is signed in, so nobody has a place to accept or decline.
+        raise PermissionError_(messages.NOT_AN_ATTENDEE)
+
     row = next(
         (a for a in booking.attendees if a.user_id == actor.id),
         None,
@@ -244,7 +256,7 @@ def set_attendee_response(
 
     logger.info(
         "Attendee %s responded %s to booking %s",
-        actor.email,
+        _who(actor),
         response.value,
         booking.id,
     )

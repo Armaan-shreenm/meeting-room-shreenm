@@ -131,7 +131,24 @@ def get_optional_user(
     return user if user is not None and user.is_active else None
 
 
-# Endpoints annotate their actor parameter with this, so the seam is visible at
-# every call site: `actor: CurrentUser`.
+def get_actor(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+) -> User | None:
+    """The acting user, or None when NM Meet is not asking anybody to sign in.
+
+    This is the dependency every endpoint uses. With ``SIGN_IN_REQUIRED`` off it
+    returns None and the endpoints fall back to the host named in the form;
+    turn it on and the full session, CSRF and ownership rules apply again
+    without touching a single call site.
+    """
+    if not settings.sign_in_required:
+        return None
+    return get_current_user(request, db)
+
+
+# Endpoints annotate their actor parameter with these, so the seam is visible at
+# every call site: `actor: Actor`.
+Actor = Annotated["User | None", Depends(get_actor)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
 OptionalUser = Annotated["User | None", Depends(get_optional_user)]

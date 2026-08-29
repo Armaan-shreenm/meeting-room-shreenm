@@ -65,10 +65,7 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 .mark{height:26px;width:auto;flex:none;display:block}
 .brand{font-weight:700;font-size:17px;letter-spacing:-.01em;white-space:nowrap}
 .topin .sp{flex:1}
-.who{display:flex;align-items:center;gap:9px;min-width:0}
-.whoname{font-size:13.5px;font-weight:500;color:#D9D5CD;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
-.signout{font-size:13px;color:#98938B;padding:7px 11px;border-radius:var(--r-sm);transition:.16s var(--ease)}
-.signout:hover{color:#fff;background:rgba(255,255,255,.08)}
+.branchlbl{font-size:13px;color:#98938B;white-space:nowrap}
 
 /* ---------- toolbar ---------- */
 .bar{display:flex;align-items:center;gap:10px;padding:18px 0 14px;flex-wrap:wrap}
@@ -173,7 +170,6 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
   background:var(--brand-50);border:1px solid var(--ink);
   transition:background .16s var(--ease)}
 .run:hover{background:var(--brand-200)}
-.run.mine{background:var(--brand);border-color:var(--ink)}
 .run .rt{font-weight:600;font-size:12.5px;line-height:1.25;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .run .rm{font-size:11px;color:var(--ink-2);margin-top:1px;font-variant-numeric:tabular-nums}
@@ -362,10 +358,7 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 <header class="top"><div class="wrap"><div class="topin">
   <div class="logo"><img class="mark" src="/logo.png" alt="Shree NM"><span class="brand">NM Meet</span></div>
   <span class="sp"></span>
-  <div class="who">
-    <span class="whoname" id="who"></span>
-    <button class="signout" id="signout">Sign out</button>
-  </div>
+  <span class="branchlbl">Mumbai branch</span>
 </div></div></header>
 
 <div class="wrap">
@@ -435,7 +428,8 @@ button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-c
 <script>
 /* ================= config, filled from the API ================= */
 let ROOMS=[], DEPTS=[], DIR=[];
-let ME='', ME_EMAIL=null, MY_ID=null;
+/* No sign-in: whoever the form names as host owns the booking. */
+let ME='';
 const DEPT_ID={}, DIR_ID={};
 
 let OPEN=9*60, SHUT=20*60, STEP=30, MINLEN=30, MAXLEN=240;
@@ -487,8 +481,9 @@ function capAfter(rid,ds,m){
 
 /* ================= api ================= */
 const OFFLINE='NM Meet is not reachable right now. Check your connection and try again.';
+/* There is no sign-in. The CSRF token only exists once sessions are switched
+   on, so it is sent when present and simply absent until then. */
 const cookie=n=>document.cookie.split('; ').map(c=>c.split('=')).find(([k])=>k===n)?.[1]??null;
-const toLogin=()=>location.replace(`/login.html?next=${encodeURIComponent(location.pathname)}`);
 
 let busy=0;
 const setBusy=d=>{busy=Math.max(0,busy+d);document.getElementById('load').classList.toggle('on',busy>0);};
@@ -500,7 +495,7 @@ async function api(path,opts={}){
   try{
     res=await fetch(`/api${path}`,{...opts,credentials:'same-origin',headers:{
       'Content-Type':'application/json',
-      ...(unsafe?{'X-CSRF-Token':cookie('nm_csrf')||''}:{}),
+      ...(unsafe&&cookie('nm_csrf')?{'X-CSRF-Token':cookie('nm_csrf')}:{}),
       ...(opts.headers||{})}});
   }catch(e){ setBusy(-1); const err=new Error(OFFLINE); err.status=0; throw err; }
   finally{ }
@@ -508,7 +503,6 @@ async function api(path,opts={}){
   let body=null;
   try{ body=await res.json(); }catch(e){}
   if(!res.ok){
-    if(res.status===401){ toLogin(); }
     const err=new Error((body&&body.detail)||OFFLINE);
     err.status=res.status; err.body=body; throw err;
   }
@@ -539,15 +533,13 @@ async function ensureDay(ds){ try{ await loadDay(ds); }catch(e){ toast(e.message
 
 async function boot(){
   try{
-    const me=await api('/me');
-    ME_EMAIL=me.email; ME=me.full_name; MY_ID=me.id;
-    document.getElementById('who').textContent=me.full_name;
     const [rs,ds,dr]=await Promise.all([api('/rooms'),api('/departments'),api('/directory')]);
     ROOMS=rs.map(r=>({id:r.id,n:r.name,v:r.colour_var,min:r.min_people}));
     DEPTS=ds.map(d=>d.name); ds.forEach(d=>DEPT_ID[d.name]=d.id);
     DIR=dr.map(u=>u.full_name); dr.forEach(u=>DIR_ID[u.full_name]=u.id);
+    ME=DIR[0]||'';
     await refresh();
-  }catch(e){ if(e.status!==401) toast(e.message,true); }
+  }catch(e){ toast(e.message,true); }
 }
 
 /* ================= grid ================= */
@@ -617,7 +609,7 @@ function render(){
 
     runsFor(r.id,ds).forEach(bk=>{
       const el=document.createElement('button');
-      el.className='run'+(bk.byId===MY_ID?' mine':'');
+      el.className='run';
       el.style.top=(px(bk.s)+2)+'px';
       el.style.height=(((bk.e-bk.s)/60)*hh-4)+'px';
       const tall=(bk.e-bk.s)>=60;
@@ -887,8 +879,7 @@ async function openDetail(b){
     <dt>When</dt><dd>${fromIso(d.date).toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}<br>${t12(hhmm(d.entry))} to ${t12(hhmm(d.exit))}</dd>
     <dt>Room</dt><dd>${esc(d.room_name)}</dd>
     <dt>Department</dt><dd>${esc(d.department)}</dd>
-    <dt>Host</dt><dd>${esc(d.host)}${d.host===ME?' <span class="pill">you</span>':''}</dd>
-    <dt>Booked by</dt><dd>${esc(d.booked_by)}${d.booked_by_id===MY_ID?' <span class="pill">you</span>':''}</dd></dl>`;
+    <dt>Host</dt><dd>${esc(d.host)}</dd></dl>`;
   const dr=document.getElementById('drop');
   dr.dataset.armed='0'; dr.classList.remove('armed');
   dr.style.display=d.can_cancel?'':'none';
@@ -988,11 +979,6 @@ document.addEventListener('click',()=>{ if(popOpen()) closePop(); });
 
 document.getElementById('today').addEventListener('click',()=>{cursor=today();closePop();refresh();});
 document.getElementById('newBtn').addEventListener('click',()=>startWizard({date:iso(cursor)}));
-document.getElementById('signout').addEventListener('click',async()=>{
-  try{ await api('/auth/logout',{method:'POST'}); }catch(e){}
-  location.replace('/login.html');
-});
-
 let tt;
 function toast(msg,bad){
   const el=document.getElementById('toast');

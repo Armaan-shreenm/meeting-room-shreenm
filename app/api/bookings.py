@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core import messages
 from app.core import time as timeutil
-from app.core.auth import CurrentUser
+from app.core.auth import Actor
 from app.core.errors import NotFoundError, ValidationError
 from app.database import get_db
 from app.models import AttendeeResponse, Booking, BookingAttendee, NotificationEvent, User
@@ -47,6 +47,20 @@ def _parse_time(value: str) -> int:
         raise ValidationError(messages.BAD_TIME) from exc
 
 
+def _load_host(db: Session, user_id: int | None) -> User:
+    """Without a session, the host named in the form is the acting user.
+
+    create_booking validates them properly; this only has to fail politely when
+    the field is missing, because there is no session to fall back on.
+    """
+    if user_id is None:
+        raise ValidationError(messages.CONDUCTOR_REQUIRED)
+    user = db.get(User, user_id)
+    if user is None or not user.is_active:
+        raise ValidationError(messages.CONDUCTOR_REQUIRED)
+    return user
+
+
 def _load_booking(db: Session, booking_id: str) -> Booking:
     """Fetch a booking by id, refusing a malformed or unknown id politely."""
     try:
@@ -70,8 +84,12 @@ def _load_booking(db: Session, booking_id: str) -> Booking:
     return booking
 
 
-def to_detail(booking: Booking, actor: User) -> BookingDetail:
-    """Shape a booking for the detail panel, including this viewer's rights."""
+def to_detail(booking: Booking, actor: User | None) -> BookingDetail:
+    """Shape a booking for the detail panel, including this viewer's rights.
+
+    With no sign-in there is nobody to compare against, so everything is
+    offered. Switch SIGN_IN_REQUIRED on and the ownership rules apply again.
+    """
     return BookingDetail(
         id=str(booking.id),
         room_id=booking.room_id,
@@ -98,9 +116,9 @@ def to_detail(booking: Booking, actor: User) -> BookingDetail:
             )
             for attendee in booking.attendees
         ],
-        can_cancel=permissions.can_cancel(actor, booking),
-        can_edit=permissions.can_edit(actor, booking),
-        can_respond=permissions.is_attendee(actor, booking),
+        can_cancel=actor is None or permissions.can_cancel(actor, booking),
+        can_edit=actor is None or permissions.can_edit(actor, booking),
+        can_respond=actor is not None and permissions.is_attendee(actor, booking),
     )
 
 
@@ -118,7 +136,7 @@ def to_detail(booking: Booking, actor: User) -> BookingDetail:
 )
 def create(
     payload: BookingCreate,
-    actor: CurrentUser,
+    actor: Actor,
     db: DbSession,
     response: Response,
 ) -> BookingDetail:
@@ -140,13 +158,15 @@ def create(
         reception_note=payload.reception_note,
     )
 
-    booking = create_booking(db, actor, request)
+    # With no sign-in, the booking belongs to whoever the form named as host.
+    booker = actor or _load_host(db, payload.conducted_by)
+    booking = create_booking(db, booker, request)
 
     audit.record(
         db,
         action=audit.CREATED,
         booking=booking,
-        actor=actor,
+        actor=booker,
         after=audit.snapshot(booking),
     )
     notifications.notify(db, booking, NotificationEvent.BOOKED)
@@ -162,7 +182,7 @@ def create(
     response_model=BookingDetail,
     summary="Booking detail panel payload",
 )
-def detail(booking_id: str, actor: CurrentUser, db: DbSession) -> BookingDetail:
+def detail(booking_id: str, actor: Actor, db: DbSession) -> BookingDetail:
     return to_detail(_load_booking(db, booking_id), actor)
 
 
@@ -174,7 +194,7 @@ def detail(booking_id: str, actor: CurrentUser, db: DbSession) -> BookingDetail:
     response_model=BookingDetail,
     summary="Cancel a booking",
 )
-def cancel(booking_id: str, actor: CurrentUser, db: DbSession) -> BookingDetail:
+def cancel(booking_id: str, actor: Actor, db: DbSession) -> BookingDetail:
     """Free the room immediately and tell all five recipient groups.
 
     The booking is marked CANCELLED and kept for the audit record; it is never
@@ -198,7 +218,7 @@ def cancel(booking_id: str, actor: CurrentUser, db: DbSession) -> BookingDetail:
 def update(
     booking_id: str,
     payload: BookingUpdate,
-    actor: CurrentUser,
+    actor: Actor,
     db: DbSession,
 ) -> BookingDetail:
     """Details only - title, department, conductor, attendees, reception note.
@@ -239,7 +259,7 @@ def update(
 def respond(
     booking_id: str,
     payload: AttendeeResponseIn,
-    actor: CurrentUser,
+    actor: Actor,
     db: DbSession,
 ) -> BookingDetail:
     """An attendee's own reply - record-keeping only.

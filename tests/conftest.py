@@ -82,6 +82,25 @@ _refuse_to_run_against_production()
 
 
 @pytest.fixture(autouse=True)
+def signed_in_mode(monkeypatch):
+    """Run the suite with sign-in switched on.
+
+    The shipped default is off: nobody signs in and the host named in the form
+    owns the booking. The session, CSRF and ownership machinery is still built
+    and still has to work for the day Google Sign-In is turned on, so the bulk
+    of the suite exercises it. tests/test_open_access.py covers the shipped
+    default instead.
+    """
+    monkeypatch.setattr(settings, "sign_in_required", True)
+
+
+@pytest.fixture()
+def open_access(monkeypatch):
+    """The shipped default: no sign-in at all."""
+    monkeypatch.setattr(settings, "sign_in_required", False)
+
+
+@pytest.fixture(autouse=True)
 def clean_slate():
     """Remove test rows before and after every test, so order never matters.
 

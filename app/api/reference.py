@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.auth import CurrentUser
+from app.core.auth import Actor
 from app.database import get_db
 from app.models import Department, Room, User
 from app.schemas.reference import DepartmentOut, DirectoryUserOut, RoomOut
@@ -24,7 +24,7 @@ DbSession = Annotated[Session, Depends(get_db)]
 
 
 @router.get("/rooms", response_model=list[RoomOut], summary="The five meeting rooms")
-def list_rooms(db: DbSession, actor: CurrentUser) -> list[Room]:
+def list_rooms(db: DbSession, actor: Actor) -> list[Room]:
     """Rooms in the order the grid shows them."""
     return list(db.scalars(select(Room).order_by(Room.display_order)).all())
 
@@ -32,7 +32,7 @@ def list_rooms(db: DbSession, actor: CurrentUser) -> list[Room]:
 @router.get(
     "/departments", response_model=list[DepartmentOut], summary="Departments"
 )
-def list_departments(db: DbSession, actor: CurrentUser) -> list[Department]:
+def list_departments(db: DbSession, actor: Actor) -> list[Department]:
     return list(
         db.scalars(select(Department).order_by(Department.display_order)).all()
     )
@@ -43,7 +43,7 @@ def list_departments(db: DbSession, actor: CurrentUser) -> list[Department]:
     response_model=list[DirectoryUserOut],
     summary="Active directory members",
 )
-def list_directory(db: DbSession, actor: CurrentUser) -> list[DirectoryUserOut]:
+def list_directory(db: DbSession, actor: Actor) -> list[DirectoryUserOut]:
     """Everyone who may host or attend a meeting.
 
     Deactivated accounts are excluded: D-04 restricts hosting to directory

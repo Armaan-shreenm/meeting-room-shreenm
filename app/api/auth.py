@@ -1,5 +1,14 @@
 """Sign in, sign out, and who am I.
 
+**Nothing on the page uses any of this yet.** NM Meet asks for no sign-in:
+``SIGN_IN_REQUIRED`` is off and whoever the booking form names as host owns the
+booking. There is no login page.
+
+Everything here is built, tested and waiting. The day Google Sign-In is
+switched on - a client id, a secret and ``SIGN_IN_REQUIRED=true`` - sessions,
+CSRF and the "only the booker may cancel" rule all come back with no other
+change. Password login is kept alongside it as a fallback for the same reason.
+
 Login is deliberately generous about time and stingy about information: a wrong
 address and a wrong password produce the same message, so the form cannot be
 used to discover who has an account.

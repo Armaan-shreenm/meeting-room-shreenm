@@ -60,6 +60,17 @@ class Settings(BaseSettings):
     # Create a directory entry the first time somebody in the domain signs in.
     google_auto_create_users: bool = True
 
+    # ---------------------------------------------------------- who is booking
+    # NM Meet is an internal tool on an internal network, so it asks for no
+    # sign-in. Whoever is named as the host in the form is who the booking
+    # belongs to - that is the whole of the identity.
+    #
+    # The sign-in machinery below is built and tested and simply switched off.
+    # Turn this on the day Google Sign-In is activated and the session, the
+    # CSRF check and the "only the booker may cancel" rule all come back with
+    # no other change.
+    sign_in_required: bool = False
+
     # -------------------------------------------------------------- security
     # Signs the session cookie. MUST be set in production - a rotated value logs
     # everyone out, and a leaked one lets anybody forge a session. Render
