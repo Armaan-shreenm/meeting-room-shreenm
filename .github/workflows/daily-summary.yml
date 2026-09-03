@@ -1,0 +1,109 @@
+# =============================================================================
+# NM Meet - D-01 daily 8 am branch summary, on the free tier.
+#
+# WHY THIS FILE EXISTS
+# Render Cron Jobs are a paid feature, so the `type: cron` service was removed
+# from render.yaml (it would have made the whole blueprint unusable on a free
+# account). GitHub Actions runs the same command on the same schedule for free.
+#
+# An in-process scheduler inside the web service is still the wrong answer: a
+# free Render service sleeps after fifteen minutes of inactivity, so a thread
+# inside it cannot be relied on to be awake at 08:00 IST.
+#
+# THIS IS OFF BY DAY ONE, AND THAT IS CORRECT
+# The job is skipped unless the repository secret NM_MEET_DATABASE_URL is set.
+# Until then every run is a clean no-op, not a red failure. Nothing is lost:
+# NOTIFICATIONS_ENABLED is false on Render, so the summary has no real
+# recipient yet anyway.
+#
+# TO TURN IT ON, when SMTP credentials exist
+#   1. Render dashboard -> nm-meet-db -> copy the EXTERNAL connection string.
+#   2. Same page -> allow external access. This is the real cost of the free
+#      route: render.yaml sets `ipAllowList: []`, meaning the database is
+#      reachable only from inside Render. GitHub's runners are outside, so the
+#      list has to be relaxed for them. Prefer narrow CIDRs over 0.0.0.0/0.
+#      Not willing to open it? Then keep this workflow off and run
+#      `python -m scripts.daily_summary` by hand, or pay for a Render cron.
+#   3. GitHub -> Settings -> Secrets and variables -> Actions, add:
+#        NM_MEET_DATABASE_URL   (required - the external string from step 1)
+#        NM_MEET_SMTP_HOST / _USER / _PASSWORD / _FROM_EMAIL
+#        NM_MEET_MUMBAI_GROUP_EMAIL, NM_MEET_RECEPTION_EMAIL
+#        NM_MEET_PUBLIC_BASE_URL  (https://<service>.onrender.com)
+#      and set the repository variable NM_MEET_NOTIFICATIONS_ENABLED to true.
+#
+# GitHub disables scheduled workflows in a repository with no activity for 60
+# days. Run it once from the Actions tab to wake it up again.
+# =============================================================================
+
+name: Daily branch summary
+
+on:
+  # 02:30 UTC == 08:00 Asia/Kolkata (UTC+5:30) all year; India has no DST.
+  # Monday to Saturday. Sunday is closed - D-03.
+  schedule:
+    - cron: "30 2 * * 1-6"
+  # Lets you run it by hand from the Actions tab, including --dry-run testing.
+  workflow_dispatch:
+
+# Never let two summaries overlap; the job is idempotent but a second sender
+# is pointless work.
+concurrency:
+  group: nm-meet-daily-summary
+  cancel-in-progress: false
+
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Skip cleanly when the database secret is not configured
+        id: guard
+        env:
+          DB: ${{ secrets.NM_MEET_DATABASE_URL }}
+        run: |
+          if [ -z "$DB" ]; then
+            echo "NM_MEET_DATABASE_URL is not set - nothing to do."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.configured == 'true'
+
+      - uses: actions/setup-python@v5
+        if: steps.guard.outputs.configured == 'true'
+        with:
+          python-version: "3.11.9"
+          cache: pip
+
+      - name: Install dependencies
+        if: steps.guard.outputs.configured == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Send the daily summary
+        if: steps.guard.outputs.configured == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.NM_MEET_DATABASE_URL }}
+          # Deliberately not "production". is_production only controls the
+          # Secure cookie flag, the SECRET_KEY guard and uvicorn's reload -
+          # none of which this job touches - so staging saves having to carry
+          # a copy of the production SECRET_KEY into GitHub.
+          ENVIRONMENT: staging
+          PYTHONUNBUFFERED: "1"
+          TZ: Asia/Kolkata
+          BRANCH_NAME: Mumbai
+          DAILY_SUMMARY_HOUR: "8"
+          PUBLIC_BASE_URL: ${{ secrets.NM_MEET_PUBLIC_BASE_URL }}
+          NOTIFICATIONS_ENABLED: ${{ vars.NM_MEET_NOTIFICATIONS_ENABLED || 'false' }}
+          SMTP_HOST: ${{ secrets.NM_MEET_SMTP_HOST }}
+          SMTP_PORT: "587"
+          SMTP_USER: ${{ secrets.NM_MEET_SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.NM_MEET_SMTP_PASSWORD }}
+          SMTP_STARTTLS: "true"
+          SMTP_FROM_EMAIL: ${{ secrets.NM_MEET_SMTP_FROM_EMAIL }}
+          SMTP_FROM_NAME: NM Meet
+          RECEPTION_EMAIL: ${{ secrets.NM_MEET_RECEPTION_EMAIL }}
+          MUMBAI_GROUP_EMAIL: ${{ secrets.NM_MEET_MUMBAI_GROUP_EMAIL }}
+        run: python -m scripts.daily_summary

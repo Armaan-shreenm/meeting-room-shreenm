@@ -1,26 +1,31 @@
 # =============================================================================
 # NM Meet - Render Blueprint.
 #
-# One web service and one managed PostgreSQL database, both on free plans.
-# Everything below is free-tier compatible: no preDeployCommand, no disks, no
-# private services, no cron jobs, one worker.
+# One web service and one managed PostgreSQL database, both on the FREE plan.
 #
-# This file must sit at the root of the GitHub repository for Render to find it.
+# Everything in this file is free-tier compatible: no preDeployCommand, no
+# disks, no private services, no cron jobs, one worker. Nothing here needs a
+# paid Render account.
+#
+# This file must sit at the root of the GitHub repository. It does: the git
+# repository root is nm_meet/, so render.yaml is already at the top level.
 # =============================================================================
 
 databases:
- - name: nm-meet-db
+  - name: nm-meet-db
     databaseName: nm_meet
     user: nm_meet
     plan: free
     # Singapore is Render's closest region to Mumbai. The web service below must
-    # be in the same region or it cannot reach the database on the internal network.
+    # be in the same region or it cannot reach the database on the internal
+    # network.
     region: singapore
     postgresMajorVersion: "16"
-    ipAllowList: []          # internal connections only; nothing exposed publicly
+    # Internal connections only; the database is not exposed to the internet.
+    ipAllowList: []
 
 services:
- - type: web
+  - type: web
     name: nm-meet
     runtime: python
     plan: free
@@ -44,175 +49,146 @@ services:
       # ---- wired from the managed database above ----------------------------
       # Render supplies this as postgres://... ; config.py rewrites the scheme
       # to postgresql+psycopg2:// before SQLAlchemy ever sees it.
-     - key: DATABASE_URL
+      - key: DATABASE_URL
         fromDatabase:
           name: nm-meet-db
           property: connectionString
 
       # ---- runtime ----------------------------------------------------------
-     - key: ENVIRONMENT
+      - key: ENVIRONMENT
         value: production
-     - key: PYTHON_VERSION
+      - key: PYTHON_VERSION
         value: 3.11.9
-     - key: LOG_LEVEL
+      - key: LOG_LEVEL
         value: INFO
-     - key: SQL_ECHO
+      - key: SQL_ECHO
         value: "false"
       # Log straight to stdout, unbuffered. The filesystem is ephemeral.
-     - key: PYTHONUNBUFFERED
+      - key: PYTHONUNBUFFERED
         value: "1"
 
       # ---- authentication ---------------------------------------------------
       # Signs the session cookie. Render generates a strong value on first
       # deploy and keeps it; it is never in git. Rotating it signs everyone out.
-     - key: SECRET_KEY
+      - key: SECRET_KEY
         generateValue: true
       # One working day.
-     - key: SESSION_MAX_AGE_SECONDS
+      - key: SESSION_MAX_AGE_SECONDS
         value: "43200"
-      # Sign-in passwords for seeded accounts. Leave unset so each account gets
-      # its own random password, printed once in the deploy log.
-     - key: SEED_PASSWORD
+      # Sign-in passwords for seeded accounts. Leave blank so each account gets
+      # its own random password, printed once in the deploy log. Irrelevant
+      # while SIGN_IN_REQUIRED is false.
+      - key: SEED_PASSWORD
         sync: false
-      # Used to build the "view or cancel" link in every notification.
-     - key: PUBLIC_BASE_URL
+      # The ten demo accounts are NOT created in production. They carry
+      # passwords, and password login works alongside Google - seeding them
+      # would let anybody holding one past the shreenm.com domain check. Real
+      # employees are created by Google Sign-In, with no password at all.
+      - key: SEED_DEMO_USERS
+        value: "false"
+      # Used to build the "view or cancel" link in every notification. Set it in
+      # the dashboard to https://<your-service>.onrender.com after the first
+      # deploy. Only matters once NOTIFICATIONS_ENABLED is true.
+      - key: PUBLIC_BASE_URL
         sync: false
 
       # ---- who is booking ---------------------------------------------------
-      # No sign-in: the host named in the form owns the booking. Set true the
-      # day Google Sign-In is switched on and sessions, CSRF and the ownership
-      # rule all return with no code change.
+      # Compulsory. The form no longer asks who the host is - it is whoever is
+      # signed in - so there has to be somebody signed in. Sessions, CSRF and
+      # the "only the booker may cancel" rule all apply.
       - key: SIGN_IN_REQUIRED
-        value: "false"
+        value: "true"
 
       # ---- Google Sign-In ---------------------------------------------------
       # Backend complete; the button appears on the login page once these are
       # set. Register the redirect URI in the Google Cloud console to match.
-     - key: GOOGLE_CLIENT_ID
+      - key: GOOGLE_CLIENT_ID
         sync: false
-     - key: GOOGLE_CLIENT_SECRET
+      - key: GOOGLE_CLIENT_SECRET
         sync: false
-     - key: GOOGLE_REDIRECT_URI
+      - key: GOOGLE_REDIRECT_URI
         sync: false
-     - key: ALLOWED_EMAIL_DOMAIN
+      - key: ALLOWED_EMAIL_DOMAIN
         value: shreenm.com
 
       # ---- branch and locale ------------------------------------------------
-     - key: TZ
+      - key: TZ
         value: Asia/Kolkata
-     - key: BRANCH_NAME
+      - key: BRANCH_NAME
         value: Mumbai
 
       # ---- booking rules (spec sections 3 and 4, section 13 as settled) ------
-     - key: OPEN_TIME
+      - key: OPEN_TIME
         value: "10:00"
-     - key: CLOSE_TIME
+      - key: CLOSE_TIME
         value: "19:00"
-     - key: SLOT_MINUTES
+      - key: SLOT_MINUTES
         value: "30"
-     - key: MIN_BOOKING_MINUTES
+      - key: MIN_BOOKING_MINUTES
         value: "30"
-     - key: MAX_BOOKING_MINUTES
+      - key: MAX_BOOKING_MINUTES
         value: "240"
       # Counting today: 7 means today and the next six days.
-     - key: MAX_ADVANCE_DAYS
+      - key: MAX_ADVANCE_DAYS
         value: "7"
-     - key: NO_SHOW_RELEASE_MINUTES
+      - key: NO_SHOW_RELEASE_MINUTES
         value: "15"
       # Monday=0 ... Sunday=6. D-03: Monday to Saturday working, Sunday closed.
-     - key: CLOSED_WEEKDAYS
+      - key: CLOSED_WEEKDAYS
         value: "[6]"
 
       # ---- notifications ----------------------------------------------------
-      # Left off until real SMTP credentials exist. SMTP_USER and SMTP_PASSWORD
-      # are marked sync:false so they are entered in the Render dashboard and are
-      # never written into this file or into git.
-     - key: NOTIFICATIONS_ENABLED
-        value: "false"
-     - key: SMTP_HOST
-        sync: false
-     - key: SMTP_PORT
-        value: "587"
-     - key: SMTP_USER
-        sync: false
-     - key: SMTP_PASSWORD
-        sync: false
-     - key: SMTP_STARTTLS
+      # Reception's mailbox sends the mail, authenticated with a Google app
+      # password. SMTP_USER and SMTP_PASSWORD are sync:false so they are typed
+      # into the Render dashboard and never written into this file or into git.
+      - key: NOTIFICATIONS_ENABLED
         value: "true"
-     - key: SMTP_FROM_EMAIL
+      - key: SMTP_HOST
         sync: false
-     - key: SMTP_FROM_NAME
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_STARTTLS
+        value: "true"
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: SMTP_FROM_NAME
         value: NM Meet
-     - key: RECEPTION_EMAIL
+      - key: RECEPTION_EMAIL
         sync: false
-     - key: MUMBAI_GROUP_EMAIL
+      - key: MUMBAI_GROUP_EMAIL
         sync: false
-     - key: DAILY_SUMMARY_HOUR
+      # Told about every booking, immediately - reception books for people who
+      # are not on the booking, so nobody else would hear. Dashboard-set,
+      # because it changes when the branch list takes over from one mailbox.
+      - key: BOOKING_ANNOUNCE_EMAIL
+        sync: false
+      - key: DAILY_SUMMARY_HOUR
         value: "8"
-     - key: CALENDAR_INVITE_ENABLED
+      - key: CALENDAR_INVITE_ENABLED
         value: "true"
 
-  # ===========================================================================
-  # D-01 - the Mumbai branch group's daily 8 am summary.
-  #
-  # A separate cron job, deliberately NOT an in-process scheduler. The web
-  # service sleeps after fifteen minutes of inactivity on the free plan, so a
-  # background thread inside it cannot be relied on to be awake at 08:00 IST.
-  # Render starts this container on schedule, runs it to completion and stops it.
-  #
-  # schedule is UTC: 02:30 UTC == 08:00 Asia/Kolkata (UTC+5:30), all year, since
-  # India observes no daylight saving.
-  #
-  # NOTE: cron jobs are a PAID Render feature. On the free plan this service is
-  # ignored; run `python -m scripts.daily_summary` from any scheduler, or by
-  # hand, until the account is upgraded. See HANDOVER.md.
-  # ===========================================================================
- - type: cron
-    name: nm-meet-daily-summary
-    runtime: python
-    plan: starter
-    region: singapore
-    branch: main
-    schedule: "30 2 * * 1-6"          # Mon-Sat, 08:00 IST. Sunday is closed.
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python -m scripts.daily_summary"
-    envVars:
-     - key: DATABASE_URL
-        fromDatabase:
-          name: nm-meet-db
-          property: connectionString
-     - key: ENVIRONMENT
-        value: production
-     - key: PYTHON_VERSION
-        value: 3.11.9
-     - key: PYTHONUNBUFFERED
-        value: "1"
-     - key: TZ
-        value: Asia/Kolkata
-     - key: BRANCH_NAME
-        value: Mumbai
-      # The summary must be able to sign its own messages and address them.
-     - key: SECRET_KEY
-        generateValue: true
-     - key: PUBLIC_BASE_URL
-        sync: false
-     - key: NOTIFICATIONS_ENABLED
-        value: "false"
-     - key: SMTP_HOST
-        sync: false
-     - key: SMTP_PORT
-        value: "587"
-     - key: SMTP_USER
-        sync: false
-     - key: SMTP_PASSWORD
-        sync: false
-     - key: SMTP_STARTTLS
-        value: "true"
-     - key: SMTP_FROM_EMAIL
-        sync: false
-     - key: SMTP_FROM_NAME
-        value: NM Meet
-     - key: RECEPTION_EMAIL
-        sync: false
-     - key: MUMBAI_GROUP_EMAIL
-        sync: false
+# =============================================================================
+# D-01 - the Mumbai branch group's daily 8 am summary.
+#
+# NOT DEFINED HERE. Render Cron Jobs are a PAID feature, and this blueprint is
+# deliberately free-tier only. A `type: cron` service with `plan: starter` in
+# this file would make the whole blueprint unusable on a free account.
+#
+# Nothing is lost today: NOTIFICATIONS_ENABLED is false, so the summary has no
+# real recipient yet. The job itself is untouched and still runs by hand:
+#
+#     python -m scripts.daily_summary
+#
+# The free replacement for the schedule is .github/workflows/daily-summary.yml
+# in this repository - GitHub Actions runs the same command on the same cron.
+# Read the header of that file before enabling it; it needs the database to
+# accept an external connection, which means relaxing `ipAllowList` above.
+#
+# The in-process scheduler is still the wrong answer: a free web service sleeps
+# after fifteen minutes of inactivity, so a background thread inside it cannot
+# be relied on to be awake at 08:00 IST.
+# =============================================================================

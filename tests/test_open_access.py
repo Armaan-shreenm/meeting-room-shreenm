@@ -2,13 +2,17 @@
 
 NM Meet is internal, so it asks nobody to sign in. Whoever the booking form
 names as host is who the booking belongs to - that is the whole of the
-identity. There is no login page and no session.
+identity. No session is required.
 
 The consequence is deliberate and worth stating plainly: **anyone can cancel
 anyone's booking.** Without a sign-in the server has no way to tell one person
 from another, so it does not pretend to. The ownership rule is still written,
 still tested (in the rest of the suite, which runs with sign-in on) and comes
 back the day Google Sign-In is switched on.
+
+Google Sign-In is now configured and the login page exists again, but this
+module still describes the shipped default: SIGN_IN_REQUIRED is off, so none of
+the endpoints below ask who the caller is.
 """
 
 from __future__ import annotations
@@ -38,12 +42,22 @@ def test_the_shipped_default_asks_for_no_sign_in():
     assert settings.sign_in_required is False
 
 
-def test_there_is_no_login_page():
-    """It was deleted, not hidden."""
+def test_the_login_page_exists_and_is_only_a_link():
+    """It came back with Google Sign-In, and it holds no credential.
+
+    The page's whole job is a link to /api/auth/google/start - the state, the
+    PKCE verifier and the token exchange are all server-side. A form posting a
+    password here, or a client secret in the markup, would be the bug worth
+    catching.
+    """
     from pathlib import Path
 
-    static = Path(__file__).resolve().parent.parent / "static"
-    assert not (static / "login.html").exists()
+    page = Path(__file__).resolve().parent.parent / "static" / "login.html"
+    assert page.exists()
+
+    markup = page.read_text(encoding="utf-8")
+    assert "/api/auth/google/start" in markup
+    assert "GOCSPX-" not in markup, "a client secret must never reach the page"
 
 
 @pytest.mark.parametrize(
@@ -293,10 +307,16 @@ def test_sundays_are_still_closed(client, users, departments, rooms):
 
 
 def test_google_endpoints_are_still_there(client):
-    """Switching Google on is configuration, not code."""
+    """Switching Google on is configuration, not code.
+
+    Which is exactly why this asserts the shape and not the value: whether a
+    client id happens to be set is the deployment's business, and reading it
+    here would make the suite pass or fail on what is in somebody's .env.
+    """
     body = client.get("/api/auth/google/status").json()
-    assert body["configured"] is False
+    assert isinstance(body["configured"], bool)
     assert body["start_url"] == "/api/auth/google/start"
+    assert body["domain"] == "shreenm.com"
 
 
 def test_password_login_still_works_underneath(client, users):

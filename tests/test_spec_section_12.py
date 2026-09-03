@@ -341,12 +341,17 @@ def test_T09_booking_with_two_attendees_sends_five_notifications(
 
     assert len(rows) == 5, [r.recipient for r in rows]
     assert {r.event for r in rows} == {NotificationEvent.BOOKED}
+    # The two mailboxes are configuration, not directory members: a deployment
+    # points them at whatever it actually reads. Naming the shipped defaults
+    # here would make this pass or fail on what is in somebody's .env.
+    from app.config import settings
+
     assert {r.recipient for r in rows} == {
         "priya.nair@shreenm.com",
         "aditi.shah@shreenm.com",
         "rahul.mehta@shreenm.com",
-        "reception.mumbai@shreenm.com",
-        "mumbai.all@shreenm.com",
+        settings.reception_email,
+        settings.mumbai_group_email,
     }
 
 

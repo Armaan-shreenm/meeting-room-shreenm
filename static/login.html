@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#17171C">
+<meta name="author" content="Armaan — Team Digital Transformation">
+<meta name="application-name" content="NM Meet">
+<meta name="robots" content="noindex">
+<title>Sign in - NM Meet</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- ==========================================================================
+     NM Meet · sign-in page.
+
+     The whole page is one link. `/api/auth/google/start` does the work: it mints
+     the state and the PKCE verifier and redirects to Google. Nothing here holds
+     a secret, posts a credential or knows anything about the exchange.
+
+     Two jobs beyond that link:
+
+     1. Show the button only when the server says Google is configured. Without
+        this check an employee presses a button that can only answer 503, and
+        the failure looks like the app is broken rather than unfinished.
+     2. Read `?error=` and say it plainly. `google_callback` redirects here with
+        an already user-facing sentence from app/core/messages.py when a sign-in
+        is refused - wrong domain, expired link, not in the directory. Before
+        this file existed that redirect landed on a 404 and the reason was lost.
+
+     Designed and developed by Armaan — Team Digital Transformation.
+     ========================================================================== -->
+<style>
+/* Same tokens as index.html, trimmed to what one page needs. */
+:root{
+  --brand:#F5A300;
+  --brand-600:#DB9100;
+  --brand-200:#FFE2A6;
+  --brand-50:#FFF7E6;
+
+  --ink:#1B1A17;
+  --ink-2:#55524B;
+  --muted:#8C8880;
+
+  --page:#FAF8F5;
+  --card:#FFFFFF;
+  --sunk:#F2EFEA;
+  --line:#E9E4DC;
+  --line-2:#F1EDE6;
+  --dark:#17171C;
+
+  --no:#D6452F;
+
+  --r-sm:8px; --r:12px; --r-lg:18px; --r-xl:24px;
+  --ease:cubic-bezier(.4,0,.2,1);
+  --gut:20px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--page);color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;
+  min-height:100dvh;display:flex;flex-direction:column;
+}
+button,input{font:inherit;color:inherit}
+button{background:none;border:0;padding:0;cursor:pointer;appearance:none;
+  -webkit-appearance:none;-webkit-tap-highlight-color:transparent}
+a{color:inherit}
+:focus-visible{outline:2.5px solid var(--brand);outline-offset:2px;border-radius:4px}
+.wrap{width:100%;max-width:1240px;margin:0 auto;padding:0 var(--gut)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---------- header ---------- */
+.top{background:var(--dark);color:#F3F1EC}
+.topin{display:flex;align-items:center;gap:12px;padding:14px 0}
+.logo{display:flex;align-items:center;gap:10px;min-width:0}
+.mark{height:26px;width:auto;flex:none;display:block}
+.brand{font-weight:700;font-size:17px;letter-spacing:-.01em;white-space:nowrap}
+.topin .sp{flex:1}
+.branchlbl{font-size:13px;color:#98938B;white-space:nowrap}
+
+/* ---------- the card ---------- */
+.mid{flex:1;display:flex;align-items:center;justify-content:center;padding:40px var(--gut) 32px}
+.card{
+  width:100%;max-width:420px;background:var(--card);
+  border:1px solid var(--ink);border-radius:var(--r-xl);
+  padding:34px 30px 28px;text-align:center;
+  box-shadow:0 18px 40px -28px rgba(27,26,23,.45);
+}
+h1{margin:0;font-size:23px;font-weight:700;letter-spacing:-.02em}
+.sub{margin:8px 0 0;font-size:14.5px;color:var(--ink-2)}
+
+/* ---------- the error the callback redirected us here with ---------- */
+.alert{display:none;text-align:left;gap:11px;margin:22px 0 0;padding:13px 15px;
+  background:#FFF5F3;border:1px solid #F0C6BD;border-left:3px solid var(--no);
+  border-radius:var(--r);font-size:14px;color:#8A2C1B;line-height:1.45}
+.alert.on{display:flex}
+.alert svg{flex:none;margin-top:2px;color:var(--no)}
+.alert b{display:block;font-weight:600;margin-bottom:2px;color:#6E2214}
+
+/* ---------- google's button ----------
+   White ground, #747775 border, 40px tall, the unmodified four-colour mark:
+   Google's branding guidelines allow no recolouring and no substitute glyph. */
+.gwrap{margin-top:24px;min-height:44px;display:flex;flex-direction:column;align-items:center}
+.gbtn{
+  display:inline-flex;align-items:center;justify-content:center;gap:12px;
+  width:100%;height:44px;padding:0 16px;
+  background:#FFF;border:1px solid #747775;border-radius:var(--r);
+  color:#1F1F1F;font-size:15px;font-weight:600;letter-spacing:.01em;
+  text-decoration:none;transition:background .16s var(--ease),box-shadow .16s var(--ease)}
+.gbtn:hover{background:#F7F7F7;box-shadow:0 1px 3px rgba(60,64,67,.24)}
+.gbtn:active{background:#EFEFEF}
+.gbtn svg{flex:none}
+
+/* ---------- states that are not a button ---------- */
+.wait{display:flex;align-items:center;justify-content:center;gap:9px;height:44px;
+  font-size:14px;color:var(--muted)}
+.spin{width:15px;height:15px;border:2px solid var(--line);border-top-color:var(--brand);
+  border-radius:50%;animation:turn .7s linear infinite}
+@keyframes turn{to{transform:rotate(360deg)}}
+
+.notice{text-align:left;background:var(--brand-50);border:1px solid var(--brand-200);
+  border-radius:var(--r);padding:13px 15px;font-size:13.5px;color:#7A5200;line-height:1.5;width:100%}
+.notice b{display:block;font-size:11.5px;font-weight:700;letter-spacing:.04em;
+  text-transform:uppercase;margin-bottom:4px}
+.notice code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
+  background:#FFF;border:1px solid var(--brand-200);border-radius:5px;padding:1px 5px}
+
+.hint{margin:16px 0 0;font-size:12.5px;color:var(--muted);line-height:1.5}
+.hint code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+  background:var(--sunk);border-radius:5px;padding:1px 5px}
+
+.rule{height:1px;background:var(--line-2);margin:22px 0 0}
+.foot{padding:0 var(--gut) 26px;text-align:center;font-size:12px;color:var(--muted)}
+
+@media (max-width:760px){
+  :root{--gut:14px}
+  .topin{padding:11px 0}
+  .mid{padding:26px var(--gut) 22px}
+  .card{padding:28px 22px 24px;border-radius:var(--r-lg)}
+  h1{font-size:21px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="top"><div class="wrap"><div class="topin">
+  <div class="logo"><img class="mark" src="/logo.png" alt="Shree NM"
+         title="NM Meet — developed by Armaan, Team Digital Transformation"><span class="brand">NM Meet</span></div>
+  <span class="sp"></span>
+  <span class="branchlbl">Mumbai branch</span>
+</div></div></header>
+
+<main class="mid">
+  <div class="card">
+    <h1>Sign in to NM Meet</h1>
+    <p class="sub">Book a meeting room at the Mumbai branch.</p>
+
+    <!-- Filled by showError(). Hidden until the callback sends us a reason. -->
+    <div class="alert" id="alert" role="alert">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5"/><path d="M12 16.5h.01"/>
+      </svg>
+      <span><b>Could not sign you in</b><span id="alertMsg"></span></span>
+    </div>
+
+    <!-- One of three things ends up here: the button, a spinner, or a notice. -->
+    <div class="gwrap" id="gwrap">
+      <div class="wait"><span class="spin"></span>Checking sign-in…</div>
+    </div>
+
+    <p class="hint" id="hint"></p>
+    <div class="rule"></div>
+  </div>
+</main>
+
+<div class="foot">NM Meet · Shree NM, Mumbai</div>
+
+<script>
+/* ============================================================================
+   Everything below is display. The security lives on the server: the state
+   check, the PKCE verifier and the id_token signature verification all happen
+   in app/core/google_oauth.py, none of it is reachable from this page.
+   ========================================================================== */
+
+const $ = id => document.getElementById(id);
+
+/* ---------------------------------------------------- the callback's reason */
+/* messages.py already phrases these for a human, so they are shown as written.
+   textContent, never innerHTML: the string arrives through the query string and
+   a `?error=<img onerror=...>` must stay text. */
+function showError(){
+  const msg = new URLSearchParams(location.search).get('error');
+  if(!msg) return;
+
+  $('alertMsg').textContent = msg;
+  $('alert').classList.add('on');
+
+  /* Drop the query string so a refresh does not replay a stale complaint. */
+  history.replaceState(null, '', location.pathname);
+}
+
+/* -------------------------------------------------- already signed in? */
+/* /api/me answers 401 without a session, which is the ordinary case here and
+   not worth logging. A 200 means the cookie is still good - sending them to the
+   grid rather than showing a sign-in button they do not need. */
+async function skipIfSignedIn(){
+  try{
+    const r = await fetch('/api/me', {credentials:'same-origin'});
+    if(r.ok){ location.replace('/'); return true; }
+  }catch(e){ /* offline; fall through and show the button */ }
+  return false;
+}
+
+/* ------------------------------------------------------------- the button */
+const G_MARK = `
+  <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.28-3.14.76-4.59l-7.97-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+  </svg>`;
+
+function renderButton(startUrl, domain){
+  /* A plain link, not a fetch. The whole flow is a browser redirect: the server
+     must set the state cookie on a navigation the browser will follow back. */
+  $('gwrap').innerHTML =
+    `<a class="gbtn" href="${startUrl}" rel="nofollow">${G_MARK}Sign in with Google</a>`;
+
+  if(domain){
+    $('hint').innerHTML =
+      `Use your <code>@${escapeHtml(domain)}</code> work account. ` +
+      `A personal Google account cannot book a room.`;
+  }
+}
+
+function renderNotConfigured(){
+  /* No client id on the server. Saying so beats a button that answers 503. */
+  $('gwrap').innerHTML =
+    `<div class="notice"><b>Not set up yet</b>` +
+    `Google sign-in has not been switched on for this deployment. ` +
+    `IT needs to add <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code>.</div>`;
+  $('hint').textContent = 'Ask Team Digital Transformation to finish the setup.';
+}
+
+function renderUnreachable(){
+  $('gwrap').innerHTML =
+    `<div class="notice"><b>Cannot reach the server</b>` +
+    `Check your connection and reload the page.</div>`;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* -------------------------------------------------------------------- boot */
+(async function(){
+  showError();
+
+  if(await skipIfSignedIn()) return;
+
+  try{
+    const r = await fetch('/api/auth/google/status', {credentials:'same-origin'});
+    if(!r.ok) throw new Error(r.status);
+    const s = await r.json();
+
+    if(s.configured) renderButton(s.start_url || '/api/auth/google/start', s.domain);
+    else             renderNotConfigured();
+  }catch(e){
+    renderUnreachable();
+  }
+})();
+</script>
+</body>
+</html>

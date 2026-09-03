@@ -75,6 +75,17 @@ button{background:none;border:0;padding:0;cursor:pointer;appearance:none;
 .brand{font-weight:700;font-size:17px;letter-spacing:-.01em;white-space:nowrap}
 .topin .sp{flex:1}
 .branchlbl{font-size:13px;color:#98938B;white-space:nowrap}
+/* Who is signed in. Hidden until /api/me answers, so the header never shows an
+   empty chip to somebody the server does not recognise. */
+.who{display:flex;align-items:center;gap:10px;min-width:0}
+.who[hidden]{display:none}
+.whoname{font-size:13px;color:#C9C4BB;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;max-width:190px}
+.signout{font-size:13px;font-weight:500;color:#98938B;border:1px solid #33333B;
+  border-radius:var(--r-sm);padding:5px 11px;white-space:nowrap;
+  transition:.16s var(--ease)}
+.signout:hover{background:#22222A;color:#F3F1EC;border-color:#45454F}
+.signout:disabled{opacity:.5;cursor:not-allowed}
 
 /* ---------- toolbar ---------- */
 .bar{display:flex;align-items:center;gap:10px;padding:18px 0 14px;flex-wrap:wrap}
@@ -290,6 +301,14 @@ button{background:none;border:0;padding:0;cursor:pointer;appearance:none;
 .f textarea{min-height:70px;resize:vertical}
 .f input:focus,.f select:focus,.f textarea:focus{outline:none;border-color:var(--ink)}
 .f .sub{font-size:12px;color:var(--muted);margin-top:5px}
+/* A field the form states rather than asks. Same box as an input so the step
+   reads as one column, sunk and without a focus ring so it does not invite a
+   click that would do nothing. */
+.fixed{width:100%;border:1.5px solid var(--line);border-radius:var(--r-sm);
+  padding:11px 12px;font-size:15px;background:var(--sunk);color:var(--ink);
+  display:flex;align-items:center;gap:9px}
+.fixed b{font-weight:600}
+.fixed svg{flex:none;color:var(--muted)}
 .tag{background:var(--brand-50);border:1px solid var(--brand-200);border-radius:20px;padding:5px 6px 5px 11px;
   font-size:13px;color:#7A5200;display:flex;gap:5px;align-items:center;font-weight:500}
 .tag button{color:#B98600;font-size:15px;line-height:1;width:18px;height:18px;border-radius:50%;
@@ -378,6 +397,10 @@ button{background:none;border:0;padding:0;cursor:pointer;appearance:none;
          title="NM Meet — developed by Armaan, Team Digital Transformation"><span class="brand">NM Meet</span></div>
   <span class="sp"></span>
   <span class="branchlbl">Mumbai branch</span>
+  <div class="who" id="who" hidden>
+    <span class="whoname" id="whoName"></span>
+    <button class="signout" id="signout" type="button">Sign out</button>
+  </div>
 </div></div></header>
 
 <div class="wrap">
@@ -447,8 +470,11 @@ button{background:none;border:0;padding:0;cursor:pointer;appearance:none;
 <script>
 /* ================= config, filled from the API ================= */
 let ROOMS=[], DEPTS=[], DIR=[];
-/* No sign-in: whoever the form names as host owns the booking. */
+/* Who the booking belongs to. With Google Sign-In on this is the signed-in
+   employee; with it off there is no session and the first directory name is
+   only a default the wizard lets you change. */
 let ME='';
+let SIGNED_IN=null;
 const DEPT_ID={}, DIR_ID={};
 
 let OPEN=9*60, SHUT=20*60, STEP=30, MINLEN=30, MAXLEN=240;
@@ -522,6 +548,13 @@ async function api(path,opts={}){
   let body=null;
   try{ body=await res.json(); }catch(e){}
   if(!res.ok){
+    /* A 401 can only happen once SIGN_IN_REQUIRED is on: with it off the
+       endpoints never ask who the caller is. So it means exactly one thing -
+       the session is gone - and the sign-in page is where to go. The throw
+       still happens, to stop the caller rendering half a grid on the way out. */
+    if(res.status===401 && !location.pathname.endsWith('/login.html')){
+      location.replace('/login.html');
+    }
     const err=new Error((body&&body.detail)||OFFLINE);
     err.status=res.status; err.body=body; throw err;
   }
@@ -551,16 +584,52 @@ async function refresh(){
 }
 async function ensureDay(ds){ try{ await loadDay(ds); }catch(e){ toast(e.message,true); } }
 
+/* Who is signed in, if anybody.
+
+   Deliberately a bare fetch and not api(): /api/me answers 401 whenever there
+   is no session, which is the ordinary case while sign-in is optional, and
+   routing it through api() would bounce a perfectly welcome visitor to the
+   sign-in page. */
+async function whoAmI(){
+  try{
+    const r=await fetch('/api/me',{credentials:'same-origin'});
+    if(!r.ok) return;
+    SIGNED_IN=await r.json();
+    document.getElementById('whoName').textContent=SIGNED_IN.full_name;
+    document.getElementById('who').hidden=false;
+  }catch(e){ /* offline - the grid load below reports it once, not twice */ }
+}
+
 async function boot(){
   try{
+    await whoAmI();
     const [rs,ds,dr]=await Promise.all([api('/rooms'),api('/departments'),api('/directory')]);
     ROOMS=rs.map(r=>({id:r.id,n:r.name,v:r.colour_var,min:r.min_people}));
     DEPTS=ds.map(d=>d.name); ds.forEach(d=>DEPT_ID[d.name]=d.id);
     DIR=dr.map(u=>u.full_name); dr.forEach(u=>DIR_ID[u.full_name]=u.id);
-    ME=DIR[0]||'';
+    /* The signed-in employee is the host the wizard opens on - but only if the
+       directory actually lists them, or the picker would show a name it has no
+       option for. */
+    ME=(SIGNED_IN && DIR.includes(SIGNED_IN.full_name)) ? SIGNED_IN.full_name : (DIR[0]||'');
     await refresh();
   }catch(e){ toast(e.message,true); }
 }
+
+/* Sign out clears both cookies server-side; it is CSRF-checked, so it goes
+   through api() to pick up the token. Only a confirmed logout leaves the page:
+   redirecting on a failed one would land on a sign-in page that sees a live
+   session and sends the user straight back. */
+document.getElementById('signout').addEventListener('click',async e=>{
+  const b=e.currentTarget;
+  b.disabled=true;
+  try{
+    await api('/auth/logout',{method:'POST'});
+    location.replace('/login.html');
+  }catch(err){
+    b.disabled=false;
+    toast(err.message,true);
+  }
+});
 
 /* ================= grid ================= */
 function render(){
@@ -696,7 +765,9 @@ function stepValid(){
   if(W.step===2) return !!W.date && !dayShut(W.date) && !beyondWindow(W.date);
   if(W.step===3) return W.entry!=null && entryOk(W.entry);
   if(W.step===4) return W.exit!=null && exitOk(W.exit);
-  if(W.step===5) return !!W.dept && !!W.host;
+  /* The host is not asked for any more, so there is nothing to check but the
+     department. The server fills the host in from the session. */
+  if(W.step===5) return !!W.dept;
   return true;
 }
 
@@ -805,8 +876,8 @@ function step3(B){
   const hint=document.createElement('div');
   hint.className='hint';
   hint.innerHTML = runs.length
-    ? `<b>${esc(r.n)}</b> is already taken ${runs.map(b=>`${t12(b.s)}-${t12(b.e)}`).join(', ')}. Those times are greyed out.`
-    : `<b>${esc(r.n)}</b> has nothing booked on this day.`;
+    ? `Booked: ${runs.map(b=>`${t12(b.s)}-${t12(b.e)}`).join(', ')}`
+    : 'Nothing booked on this day.';
   B.appendChild(hint);
 }
 
@@ -828,18 +899,25 @@ function step4(B){
   B.appendChild(hint);
 }
 
-/* --- step 5: who is booking, and for which department ---
-   Nothing else is asked. What the meeting is about, and who will be in it, is
-   not the booking system's business. */
+/* --- step 5: which department, and who the room is for ---
+   The host is no longer a question. It is whoever is signed in, stated back so
+   the person can see whose name will be on the grid - a list of everybody in
+   the directory only ever invited picking the wrong one by accident, and the
+   server ignores the field anyway now. */
 function step5(B){
   B.innerHTML=`
    <div class="f"><label for="wD">Which department is this for?</label>
      <select id="wD">${DEPTS.map(d=>`<option ${d===W.dept?'selected':''}>${esc(d)}</option>`).join('')}</select></div>
-   <div class="f"><label for="wH">Host</label>
-     <select id="wH">${DIR.map(p=>`<option ${p===W.host?'selected':''}>${esc(p)}</option>`).join('')}</select>
-     <div class="sub">Whoever the room is being held for.</div></div>`;
+   <div class="f"><label>Host</label>
+     <div class="fixed">
+       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+       </svg>
+       <b>${esc(W.host||'You')}</b>
+     </div>
+     <div class="sub">You are signed in, so the room is booked in your name.</div></div>`;
   B.querySelector('#wD').addEventListener('change',e=>{W.dept=e.target.value;});
-  B.querySelector('#wH').addEventListener('change',e=>{W.host=e.target.value;});
 }
 
 /* --- step 6: review --- */
@@ -878,7 +956,9 @@ document.getElementById('wNext').addEventListener('click',async()=>{
   try{
     await api('/bookings',{method:'POST',body:JSON.stringify({
       room_id:W.room, date:W.date, entry:t24(W.entry), exit:t24(W.exit),
-      department_id:DEPT_ID[W.dept]??null, conducted_by:DIR_ID[W.host]??null,
+      /* No conducted_by: the server takes the host from the session. Sending a
+         directory id from here would be asking the browser who the user is. */
+      department_id:DEPT_ID[W.dept]??null,
       attendee_ids:[], title:'', reception_note:null})});
     /* shut_() clears W, so everything the toast and the grid need is read first. */
     const r=room(W.room), s=W.entry, e=W.exit, when=W.date;

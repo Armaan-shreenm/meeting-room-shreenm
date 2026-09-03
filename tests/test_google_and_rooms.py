@@ -101,11 +101,36 @@ def test_availability_publishes_the_window(client, users, day):
 # =============================================================================
 
 
-def test_google_is_not_configured_out_of_the_box():
+def test_nothing_is_configured_without_a_client(google_unconfigured):
     assert google_oauth.is_configured() is False
 
 
-def test_status_endpoint_tells_the_page_to_hide_the_button(client):
+def test_configured_once_both_halves_are_set(google_configured):
+    assert google_oauth.is_configured() is True
+
+
+def test_half_a_client_is_not_configured(monkeypatch):
+    """An id with no secret cannot complete the exchange, so it does not count."""
+    monkeypatch.setattr(settings, "google_client_id", "id.apps.googleusercontent.com")
+    monkeypatch.setattr(settings, "google_client_secret", "")
+    assert google_oauth.is_configured() is False
+
+
+@pytest.fixture()
+def google_unconfigured(monkeypatch):
+    """A deployment with no OAuth client set.
+
+    Pinned rather than assumed: once a real client id reaches somebody's .env
+    these two tests would otherwise start failing on their machine and nowhere
+    else, which says nothing about the code.
+    """
+    monkeypatch.setattr(settings, "google_client_id", "")
+    monkeypatch.setattr(settings, "google_client_secret", "")
+
+
+def test_status_endpoint_tells_the_page_to_hide_the_button(
+    client, google_unconfigured
+):
     """No session needed: the login page asks before anybody has signed in."""
     body = client.get("/api/auth/google/status").json()
     assert body["configured"] is False
@@ -113,7 +138,14 @@ def test_status_endpoint_tells_the_page_to_hide_the_button(client):
     assert body["start_url"] == "/api/auth/google/start"
 
 
-def test_start_refuses_politely_while_unconfigured(client):
+def test_status_endpoint_tells_the_page_to_show_the_button(client, google_configured):
+    """The other half of the same switch, now that a client id exists."""
+    body = client.get("/api/auth/google/status").json()
+    assert body["configured"] is True
+    assert body["start_url"] == "/api/auth/google/start"
+
+
+def test_start_refuses_politely_while_unconfigured(client, google_unconfigured):
     response = client.get("/api/auth/google/start", follow_redirects=False)
     assert response.status_code == 503
     assert response.json()["detail"] == messages.GOOGLE_NOT_CONFIGURED
@@ -126,6 +158,75 @@ def google_configured(monkeypatch):
     monkeypatch.setattr(
         settings, "google_redirect_uri", "http://localhost:8000/api/auth/google/callback"
     )
+
+
+def _claims(**over):
+    """What Google's verifier hands back once the signature checks out."""
+    base = {
+        "email": "priya.nair@shreenm.com",
+        "email_verified": True,
+        "name": "Priya Nair",
+        "sub": "1234567890",
+    }
+    base.update(over)
+    return base
+
+
+def test_id_token_verification_tolerates_ordinary_clock_drift(
+    monkeypatch, google_configured
+):
+    """A desktop a second or two off NTP must still be able to sign in.
+
+    This was a real failure, not a hypothetical one: verified with no tolerance,
+    a machine whose clock was **one second** slow refused every sign-in with
+    "Token used too early", and the user was shown "Google could not confirm who
+    you are" for a machine that was working perfectly.
+    """
+    seen = {}
+
+    def fake_verify(token, request, audience, **kwargs):
+        seen.update(kwargs)
+        return _claims()
+
+    monkeypatch.setattr(
+        google_oauth.google_id_token, "verify_oauth2_token", fake_verify
+    )
+
+    identity = google_oauth.verify_id_token("pretend.jwt.value")
+    assert identity.email == "priya.nair@shreenm.com"
+
+    assert seen.get("clock_skew_in_seconds", 0) >= 30, (
+        "id_token verification must allow for ordinary clock drift"
+    )
+
+
+def test_the_skew_allowance_does_not_let_another_domain_in(
+    monkeypatch, google_configured
+):
+    """Tolerating drift is about time, and must not soften anything else."""
+
+    def fake_verify(token, request, audience, **kwargs):
+        return _claims(email="someone@gmail.com", name="Someone Else")
+
+    monkeypatch.setattr(
+        google_oauth.google_id_token, "verify_oauth2_token", fake_verify
+    )
+
+    with pytest.raises(google_oauth.GoogleAuthError) as refused:
+        google_oauth.verify_id_token("pretend.jwt.value")
+    assert "shreenm.com" in refused.value.detail
+
+
+def test_an_unverified_google_email_is_still_refused(monkeypatch, google_configured):
+    def fake_verify(token, request, audience, **kwargs):
+        return _claims(email_verified=False)
+
+    monkeypatch.setattr(
+        google_oauth.google_id_token, "verify_oauth2_token", fake_verify
+    )
+
+    with pytest.raises(google_oauth.GoogleAuthError):
+        google_oauth.verify_id_token("pretend.jwt.value")
 
 
 def test_start_redirects_to_google_with_pkce_and_state(client, google_configured):

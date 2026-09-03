@@ -80,6 +80,18 @@ class Settings(BaseSettings):
     bcrypt_rounds: int = 12
     # Printed once by scripts/seed.py when it sets a password it generated.
     seed_password: str = ""
+    # Whether the seed also creates the ten demo directory members.
+    #
+    # Off by default, and that default is a security decision rather than a
+    # tidiness one: those accounts carry **passwords**, and password login still
+    # works alongside Google. A deployment that seeded them would accept anybody
+    # holding one of those passwords as a real employee, without ever going
+    # through Google or the shreenm.com domain check.
+    #
+    # Real people arrive through Google Sign-In, which creates them with no
+    # password at all. Turn this on locally when running the test suite, which
+    # needs a populated directory.
+    seed_demo_users: bool = False
 
     # --------------------------------------------------------- branch, locale
     # Stored as timestamptz in UTC, displayed in this zone. Spec section 11.
@@ -118,8 +130,30 @@ class Settings(BaseSettings):
     smtp_from_email: str = "nm-meet@example.invalid"
     smtp_from_name: str = "NM Meet"
     # Spec section 8 recipients that are mailboxes rather than directory users.
+    # Send the mail after the response instead of during it. SMTP is slow -
+    # Gmail takes three or four seconds per message and a booking produces
+    # several - and the person who pressed "Confirm booking" should not sit
+    # watching a spinner while a mail server is talked to. The booking still
+    # commits first, so nothing is ever announced that did not happen.
+    #
+    # Off in the tests, where delivery has to be finished before an assertion
+    # can look at it, and where the transport is stdout and instant anyway.
+    notifications_async: bool = True
     reception_email: str = "reception.mumbai@shreenm.com"
     mumbai_group_email: str = "mumbai.all@shreenm.com"
+    # One address told about every booking, the moment it is made.
+    #
+    # Reception books on everybody's behalf, so the people who need to know a
+    # room has gone are not on the booking at all - nobody is named as an
+    # attendee and the host is the receptionist. This is the address that finds
+    # out anyway. Empty means nobody extra is written to, which is why it is
+    # safe to leave unset.
+    #
+    # It will become the branch-wide list; until then it is one mailbox. Note
+    # that mumbai_group_email above is the *deferred* daily summary (D-01) and
+    # this one is immediate - pointing both at the same list would send that
+    # list a message per booking and a summary of the same bookings at 8 am.
+    booking_announce_email: str = ""
     # D-01: the branch list gets one summary at this local hour, not a mail per booking.
     daily_summary_hour: int = 8
     # D-02: an .ics invite is attached; no video-conference link is created.

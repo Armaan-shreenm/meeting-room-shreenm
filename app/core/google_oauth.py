@@ -54,6 +54,17 @@ _OAUTH_SALT = "nm-meet-google-oauth"
 # The round trip through Google is a browser redirect; ten minutes is generous.
 OAUTH_STATE_MAX_AGE = 600
 
+# How far this machine's clock may disagree with Google's before an id_token is
+# refused. Verifying with no tolerance at all sounds stricter and is really just
+# brittle: an ordinary desktop drifts a second or two between NTP syncs, and a
+# clock one second slow makes every single sign-in fail with "Token used too
+# early" - a message the user cannot act on, for a machine that is working
+# normally. Sixty seconds is what OpenID Connect suggests and what other
+# libraries default to. It buys an attacker nothing: the signature, the issuer,
+# the audience and the expiry are all still checked, and a token is only usable
+# a minute either side of a window it already had to be inside.
+CLOCK_SKEW_SECONDS = 60
+
 
 class GoogleAuthError(Exception):
     """The exchange failed. ``detail`` is already a user-facing message."""
@@ -201,6 +212,7 @@ def verify_id_token(raw_id_token: str) -> GoogleIdentity:
             raw_id_token,
             google_requests.Request(),
             settings.google_client_id,
+            clock_skew_in_seconds=CLOCK_SKEW_SECONDS,
         )
     except ValueError as exc:
         logger.warning("Google id_token failed verification: %s", exc)

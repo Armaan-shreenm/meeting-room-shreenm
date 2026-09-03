@@ -36,6 +36,7 @@ from app.core.middleware import (
     RequestIdMiddleware,
     request_id_var,
 )
+from app.services import notifications
 from app.services.transports import configure_transport
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -76,6 +77,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.close_time.isoformat(timespec="minutes"),
     )
     yield
+
+    # Messages committed as QUEUED are on a daemon thread that dies with the
+    # process. Give them a moment to go out rather than losing them to a
+    # redeploy; anything still queued stays QUEUED in the log, which is true.
+    notifications.drain(timeout=10.0)
     logger.info("NM Meet shutting down")
 
 

@@ -146,20 +146,30 @@ def create(
     is written. A 409 carries the section 5 message naming this room and the
     rooms still free.
     """
+    # With no sign-in, the booking belongs to whoever the form named as host.
+    booker = actor or _load_host(db, payload.conducted_by)
+
+    # The host is whoever is signed in. The form stopped asking - the person at
+    # the keyboard is the person the room is for - so an omitted conducted_by
+    # means "me". It is still accepted when sent, because an edit sends it and
+    # because booking on somebody else's behalf is a change of one field, not a
+    # change of design. What it is not is a way to claim to be somebody else:
+    # `booker` comes from the session either way, and section 9 compares
+    # against that.
+    conducted_by = payload.conducted_by if payload.conducted_by is not None else booker.id
+
     request = BookingRequest(
         room_id=payload.room_id,
         day=payload.date,
         entry=_parse_time(payload.entry),
         exit=_parse_time(payload.exit),
         department_id=payload.department_id,
-        conducted_by=payload.conducted_by,
+        conducted_by=conducted_by,
         attendee_ids=payload.attendee_ids,
         title=payload.title,
         reception_note=payload.reception_note,
     )
 
-    # With no sign-in, the booking belongs to whoever the form named as host.
-    booker = actor or _load_host(db, payload.conducted_by)
     booking = create_booking(db, booker, request)
 
     audit.record(

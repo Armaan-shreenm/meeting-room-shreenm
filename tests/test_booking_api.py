@@ -42,6 +42,59 @@ def post_booking(client, user, **kwargs):
 
 
 # =============================================================================
+# Who the room is for
+# =============================================================================
+# The form stopped asking. Reception - and everybody else - books as themselves,
+# so the host is the session, not a field the browser fills in.
+
+
+def test_the_host_is_whoever_is_signed_in_when_the_form_does_not_say(
+    client, users, departments, rooms, day
+):
+    payload = booking_payload(
+        room_id="power",
+        day=day,
+        entry="10:00",
+        exit_="11:00",
+        department_id=departments["Sales"].id,
+        conducted_by=users["rahul"].id,
+    )
+    payload.pop("conducted_by")
+
+    created = client.post(
+        "/api/bookings", json=payload, headers=headers_for(users["aditi"])
+    )
+    assert created.status_code == 201, created.text
+
+    body = created.json()
+    assert body["host"] == users["aditi"].full_name
+    assert body["conducted_by_id"] == users["aditi"].id
+    assert body["booked_by"] == users["aditi"].full_name
+
+
+def test_an_explicit_host_is_still_honoured(
+    client, users, departments, rooms, day
+):
+    """Booking on somebody's behalf stays possible - it is one field, not a
+    redesign - and it still does not change who booked it."""
+    created = post_booking(
+        client,
+        users["aditi"],
+        room_id="power",
+        day=day,
+        entry="10:00",
+        exit_="11:00",
+        department_id=departments["Sales"].id,
+        conducted_by=users["rahul"].id,
+    )
+    assert created.status_code == 201, created.text
+
+    body = created.json()
+    assert body["host"] == users["rahul"].full_name
+    assert body["booked_by"] == users["aditi"].full_name
+
+
+# =============================================================================
 # Reference endpoints
 # =============================================================================
 
@@ -536,7 +589,14 @@ def test_missing_department(client, users, rooms, day):
     assert response.json()["detail"] == messages.DEPARTMENT_REQUIRED
 
 
-def test_missing_conductor(client, users, departments, rooms, day):
+def test_a_null_conductor_means_the_signed_in_user(
+    client, users, departments, rooms, day
+):
+    """It used to be an error. The form stopped asking, so it is now "me".
+
+    CONDUCTOR_REQUIRED still has a live path - somebody with no session and no
+    host named at all, covered in tests/test_open_access.py.
+    """
     payload = booking_payload(
         room_id="spark",
         day=day,
@@ -549,8 +609,8 @@ def test_missing_conductor(client, users, departments, rooms, day):
     response = client.post(
         "/api/bookings", json=payload, headers=headers_for(users["priya"])
     )
-    assert response.status_code == 400
-    assert response.json()["detail"] == messages.CONDUCTOR_REQUIRED
+    assert response.status_code == 201, response.text
+    assert response.json()["host"] == users["priya"].full_name
 
 
 def test_unknown_room(client, users, departments, day):

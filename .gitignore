@@ -2,6 +2,10 @@
 .env
 .env.*
 !.env.example
+# The OAuth client JSON Google hands out on download. It carries the client
+# secret in plain text, so it must never reach a commit.
+client_secret*.json
+*credentials*.json
 
 # ---- python ----
 __pycache__/
@@ -14,6 +18,10 @@ dist/
 *.egg-info/
 .eggs/
 pip-wheel-metadata/
+
+# ---- virtual environments ----
+.venv/
+venv/
 
 # ---- conda / anaconda artefacts ----
 .conda/
@@ -53,6 +61,8 @@ desktop.ini
 
 # ---- local PostgreSQL cluster (scripts/README create this; never commit it) ----
 .pgdata/
+# and any cluster kept aside during a version upgrade
+.pgdata-*/
 logfile
 
 # ---- never commit a local database or logs; the Render disk is ephemeral ----

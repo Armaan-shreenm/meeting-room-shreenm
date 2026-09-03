@@ -167,19 +167,34 @@ def seed_users(db: Session, departments: dict[str, Department]) -> None:
 
 
 def run() -> None:
-    """Seed everything in one transaction."""
+    """Seed everything in one transaction.
+
+    Rooms and departments are not optional - they are the branch itself, and the
+    grid has nothing to draw and a booking has nothing to belong to without
+    them. The demo directory is optional and off by default; see
+    ``settings.seed_demo_users``.
+    """
     with SessionLocal() as db:
         departments = seed_departments(db)
         seed_rooms(db)
-        seed_users(db, departments)
+        if settings.seed_demo_users:
+            seed_users(db, departments)
         db.commit()
 
-    logger.info(
-        "Seed complete: %d rooms, %d departments, %d directory users.",
-        len(ROOMS),
-        len(DEPARTMENTS),
-        len(DIRECTORY),
-    )
+    if settings.seed_demo_users:
+        logger.info(
+            "Seed complete: %d rooms, %d departments, %d directory users.",
+            len(ROOMS),
+            len(DEPARTMENTS),
+            len(DIRECTORY),
+        )
+    else:
+        logger.info(
+            "Seed complete: %d rooms, %d departments, no demo users "
+            "(SEED_DEMO_USERS is off - people arrive through Google Sign-In).",
+            len(ROOMS),
+            len(DEPARTMENTS),
+        )
 
 
 def main() -> int:

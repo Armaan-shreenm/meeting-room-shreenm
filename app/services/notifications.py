@@ -4,13 +4,16 @@ Notifications are **always sent**. There is no toggle and no opt-out, so this
 module has no "if enabled" branch around whether a recipient is told; the only
 switch is which transport carries the message.
 
-Five recipient groups, per the section 8 table:
+Five recipient groups from the section 8 table, plus one configured address:
 
 * attendees, everyone added in the attendees field
 * conducting, the person running the meeting
 * reception, the Mumbai front desk mailbox
 * Mumbai group, the branch-wide distribution list
 * booker, whoever filled in the form
+* announce, one mailbox told about every booking at once, when
+  ``BOOKING_ANNOUNCE_EMAIL`` is set - reception books for people who are not on
+  the booking, so somebody has to be told who is not otherwise a recipient
 
 D-01 settles the Mumbai group on a **daily 8 am summary** rather than a message
 per booking. That does not remove it as a recipient: a row is still written for
@@ -22,6 +25,10 @@ Every attempt writes a ``notification_log`` row ``QUEUED`` **before** the send,
 then moves it to ``SENT`` or ``FAILED``. A crash mid-send leaves evidence rather
 than silence.
 
+The send itself happens on a background thread once the transaction commits -
+see "delivery" below. The request returns as soon as the booking is safe, and
+the row is moved to SENT or FAILED a moment later.
+
 The transport in this phase renders the full message to stdout. Phase 7 puts SMTP
 behind the same interface.
 """
@@ -29,9 +36,12 @@ behind the same interface.
 from __future__ import annotations
 
 import logging
+import queue
+import threading
 from dataclasses import dataclass
 from typing import Protocol
 
+from sqlalchemy import event
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -52,6 +62,8 @@ CONDUCTOR = "conductor"
 RECEPTION = "reception"
 BRANCH_GROUP = "branch_group"
 BOOKER = "booker"
+# One mailbox told about every booking immediately - see settings.booking_announce_email.
+ANNOUNCE = "announce"
 
 _EVENT_HEADLINE = {
     NotificationEvent.BOOKED: "Room booked",
@@ -123,6 +135,133 @@ def set_transport(transport: Transport) -> None:
     _transport = transport
 
 
+# --------------------------------------------------------------- delivery
+
+# SMTP is slow. Gmail takes three or four seconds per message, a booking
+# produces several, and all of it used to happen inside the POST - so the
+# receptionist watched a spinner for ten seconds after pressing "Confirm
+# booking". Delivery now happens on one background thread instead.
+#
+# Two rules make that safe rather than merely faster:
+#
+# 1. Nothing is queued until the transaction **commits**. The work is parked on
+#    the Session and released by an ``after_commit`` listener, so a booking that
+#    rolls back announces nothing. Queuing at send time would have raced the
+#    commit and looked up a row that did not exist yet.
+# 2. The message is rendered on the request's thread, while the booking and its
+#    room, department and attendees are still loaded. The thread receives plain
+#    strings and never touches a detached ORM object.
+#
+# The log stays honest throughout: the row commits QUEUED and the thread moves
+# it to SENT or FAILED a moment later. A process killed in between leaves a
+# QUEUED row, which is the truth - that message never went.
+
+_SESSION_PENDING = "nm_meet_pending_notifications"
+
+_outbox: "queue.Queue[tuple[int, RenderedMessage]]" = queue.Queue()
+_worker: threading.Thread | None = None
+_worker_lock = threading.Lock()
+
+
+def _deliver_one(row_id: int, message: RenderedMessage) -> None:
+    """Send one message and record what happened, in its own session."""
+    from app.database import SessionLocal
+
+    session = SessionLocal()
+    try:
+        row = session.get(NotificationLog, row_id)
+        if row is None:
+            logger.error("Notification row %s vanished before delivery", row_id)
+            return
+
+        try:
+            get_transport().send(message)
+        except Exception as exc:  # noqa: BLE001 - the reason is stored, not swallowed
+            row.status = NotificationStatus.FAILED
+            row.error = f"{type(exc).__name__}: {exc}"
+            logger.error(
+                "Notification to %s failed: %s", message.recipient.email, exc
+            )
+        else:
+            row.status = NotificationStatus.SENT
+            row.sent_at = timeutil.now_utc()
+
+        session.commit()
+    except Exception:  # noqa: BLE001 - one bad message must not kill the thread
+        logger.exception("Delivering notification %s failed outright", row_id)
+        session.rollback()
+    finally:
+        session.close()
+
+
+def _run_outbox() -> None:
+    while True:
+        row_id, message = _outbox.get()
+        try:
+            _deliver_one(row_id, message)
+        finally:
+            _outbox.task_done()
+
+
+def _ensure_worker() -> None:
+    """Start the sender thread on first use, and only once."""
+    global _worker
+    with _worker_lock:
+        if _worker is not None and _worker.is_alive():
+            return
+        _worker = threading.Thread(
+            target=_run_outbox, name="nm-meet-notifier", daemon=True
+        )
+        _worker.start()
+        logger.info("Notification delivery thread started")
+
+
+def drain(timeout: float = 10.0) -> bool:
+    """Wait for the outbox to empty. Called on shutdown; returns whether it did.
+
+    A daemon thread dies with the process, so without this a redeploy could drop
+    a message that was already committed as QUEUED.
+    """
+    if _outbox.unfinished_tasks == 0:
+        return True
+
+    logger.info("Waiting for %s notification(s) to go out", _outbox.unfinished_tasks)
+    finished = threading.Event()
+
+    def _wait() -> None:
+        _outbox.join()
+        finished.set()
+
+    threading.Thread(target=_wait, daemon=True).start()
+    if finished.wait(timeout):
+        return True
+
+    logger.warning(
+        "Shut down with %s notification(s) still queued; they stay QUEUED in the log",
+        _outbox.unfinished_tasks,
+    )
+    return False
+
+
+@event.listens_for(Session, "after_commit")
+def _release_pending(session: Session) -> None:
+    """The booking is committed, so the messages about it may now go."""
+    pending = session.info.pop(_SESSION_PENDING, None)
+    if not pending:
+        return
+
+    _ensure_worker()
+    for item in pending:
+        _outbox.put(item)
+
+
+@event.listens_for(Session, "after_rollback")
+@event.listens_for(Session, "after_soft_rollback")
+def _discard_pending(session: Session, *args: object) -> None:
+    """Nothing happened, so nobody hears about it."""
+    session.info.pop(_SESSION_PENDING, None)
+
+
 # ------------------------------------------------------------- recipients
 
 
@@ -173,6 +312,18 @@ def recipients_for(booking: Booking) -> list[Recipient]:
             deferred=True,
         )
     )
+
+    # The announcement address, if one is configured. Deliberately last: it is
+    # deduplicated away when it is already on the booking, so the person who
+    # booked gets one message rather than two.
+    if settings.booking_announce_email:
+        collected.append(
+            Recipient(
+                email=settings.booking_announce_email,
+                name=f"{settings.branch_name} bookings",
+                kind=ANNOUNCE,
+            )
+        )
 
     unique: dict[str, Recipient] = {}
     for recipient in collected:
@@ -282,7 +433,16 @@ def notify_recipients(
             )
             continue
 
+        # Rendered here, on this thread, while the booking's room, department,
+        # conductor and attendees are all still loaded.
         message = render(booking, event, recipient)
+
+        if settings.notifications_async:
+            # Parked on the session; the after_commit listener releases it. The
+            # row stays QUEUED until the sender thread has actually sent it.
+            db.info.setdefault(_SESSION_PENDING, []).append((row.id, message))
+            continue
+
         try:
             transport.send(message)
         except Exception as exc:  # noqa: BLE001 - the reason is stored, not swallowed

@@ -24,6 +24,7 @@ from app.models import (
     NotificationLog,
     NotificationStatus,
 )
+from app.database import SessionLocal
 from app.services import notifications
 from tests.conftest import (
     TEST_TITLE_PREFIX,
@@ -101,6 +102,269 @@ def test_T09_two_attendees_produce_five_notifications(db, booking):
         settings.reception_email,
         settings.mumbai_group_email,
     }
+
+
+# -----------------------------------------------------------------------------
+# Delivery off the request thread
+# -----------------------------------------------------------------------------
+# The rest of the suite runs synchronously (see conftest). These three turn the
+# production path back on, because that is the one the receptionist uses.
+
+
+@pytest.fixture()
+def async_delivery(monkeypatch):
+    """Production behaviour: queue on commit, send on the background thread."""
+    monkeypatch.setattr(settings, "notifications_async", True)
+
+
+class _Recorder:
+    """A transport that remembers, and can be told to fail."""
+
+    name = "recorder"
+
+    def __init__(self, explode: bool = False) -> None:
+        self.sent: list[str] = []
+        self.explode = explode
+        self.seen = __import__("threading").Event()
+
+    def send(self, message) -> None:
+        if self.explode:
+            self.seen.set()
+            raise RuntimeError("the relay refused it")
+        self.sent.append(message.recipient.email)
+        self.seen.set()
+
+
+def _settle(db, booking_id, want, timeout=10.0):
+    """Wait for the delivery thread to finish writing back."""
+    import time
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        db.expire_all()
+        rows = logs_for(db, booking_id)
+        done = [r for r in rows if r.status != NotificationStatus.QUEUED]
+        if len(done) >= want:
+            return rows
+        time.sleep(0.05)
+    return logs_for(db, booking_id)
+
+
+def test_the_request_does_not_wait_for_the_mail_to_be_sent(
+    client, db, users, departments, rooms, day, async_delivery
+):
+    """A slow transport must not slow the booking down.
+
+    This is the ten-second spinner the receptionist used to sit through: three
+    messages, three or four seconds each, all inside the POST.
+    """
+    import time
+
+    class _Slow:
+        name = "slow"
+
+        def __init__(self):
+            self.sent = 0
+
+        def send(self, message):
+            time.sleep(0.6)
+            self.sent += 1
+
+    slow = _Slow()
+    notifications.set_transport(slow)
+    try:
+        started = time.monotonic()
+        created = post_booking(
+            client,
+            users["rahul"],
+            room_id="ignite",
+            day=day,
+            entry="14:00",
+            exit_="15:00",
+            department_id=departments["Finance"].id,
+            conducted_by=users["rahul"].id,
+        )
+        elapsed = time.monotonic() - started
+        assert created.status_code == 201, created.text
+
+        # Three messages at 0.6s each is 1.8s of sending. The response must not
+        # have carried any of it.
+        assert elapsed < 1.0, f"the POST waited {elapsed:.2f}s for the transport"
+
+        # Everyone except the branch group, which is deferred to the 8 am
+        # summary and so is never handed to a transport at all.
+        rows = logs_for(db, created.json()["id"])
+        expected = [
+            r for r in rows if r.recipient != settings.mumbai_group_email
+        ]
+        assert len(expected) >= 2, [r.recipient for r in rows]
+
+        rows = _settle(db, created.json()["id"], want=len(expected))
+        assert slow.sent == len(expected)
+        assert all(
+            r.status == NotificationStatus.SENT
+            for r in rows
+            if r.recipient != settings.mumbai_group_email
+        ), [(r.recipient, r.status.value) for r in rows]
+    finally:
+        notifications.set_transport(notifications.StdoutTransport())
+
+
+def test_a_message_that_fails_on_the_thread_is_recorded_not_lost(
+    client, db, users, departments, rooms, day, async_delivery
+):
+    """The row has to end FAILED with a reason, exactly as it would inline."""
+    boom = _Recorder(explode=True)
+    notifications.set_transport(boom)
+    try:
+        created = post_booking(
+            client,
+            users["rahul"],
+            room_id="ignite",
+            day=day,
+            entry="14:00",
+            exit_="15:00",
+            department_id=departments["Finance"].id,
+            conducted_by=users["rahul"].id,
+        )
+        assert created.status_code == 201, created.text
+
+        rows = _settle(db, created.json()["id"], want=2)
+        failed = [r for r in rows if r.status == NotificationStatus.FAILED]
+        assert failed, [(r.recipient, r.status) for r in rows]
+        assert "the relay refused it" in failed[0].error
+    finally:
+        notifications.set_transport(notifications.StdoutTransport())
+
+
+def test_a_booking_that_never_commits_announces_nothing(
+    client, db, users, departments, rooms, day, async_delivery
+):
+    """Queuing happens on commit, so a rolled-back transaction sends no mail.
+
+    This is the rule that makes deferring delivery safe at all. Queuing at send
+    time instead would both race the commit and promise a room that the database
+    went on to refuse.
+    """
+    created = post_booking(
+        client,
+        users["rahul"],
+        room_id="ignite",
+        day=day,
+        entry="14:00",
+        exit_="15:00",
+        department_id=departments["Finance"].id,
+        conducted_by=users["rahul"].id,
+    )
+    assert created.status_code == 201, created.text
+    _settle(db, created.json()["id"], want=2)
+
+    # Only now, so the recorder sees nothing but the rolled-back attempt.
+    recorder = _Recorder()
+    notifications.set_transport(recorder)
+    try:
+        session = SessionLocal()
+        try:
+            booking = session.scalar(
+                select(Booking).where(Booking.id == uuid.UUID(created.json()["id"]))
+            )
+            notifications.notify(session, booking, NotificationEvent.BOOKED)
+            session.rollback()
+        finally:
+            session.close()
+
+        assert not recorder.seen.wait(0.5), "a rolled-back booking sent mail"
+        assert recorder.sent == []
+    finally:
+        notifications.set_transport(notifications.StdoutTransport())
+
+
+# -----------------------------------------------------------------------------
+# The announcement address
+# -----------------------------------------------------------------------------
+# Reception books on behalf of people who are not on the booking: nobody is
+# named as an attendee and the host is the receptionist. Without this address
+# nobody outside the front desk would ever hear that a room had gone.
+
+
+@pytest.fixture()
+def announced_to(monkeypatch):
+    """Point BOOKING_ANNOUNCE_EMAIL somewhere and hand back the address."""
+
+    def _set(email: str) -> str:
+        monkeypatch.setattr(settings, "booking_announce_email", email)
+        return email
+
+    return _set
+
+
+def test_the_announcement_address_hears_about_every_booking(
+    client, db, users, departments, rooms, day, announced_to
+):
+    where = announced_to("bookings.mumbai@shreenm.com")
+
+    created = post_booking(
+        client,
+        users["rahul"],
+        room_id="ignite",
+        day=day,
+        entry="14:00",
+        exit_="15:00",
+        department_id=departments["Finance"].id,
+        conducted_by=users["rahul"].id,
+    )
+    assert created.status_code == 201, created.text
+
+    rows = {r.recipient: r for r in logs_for(db, created.json()["id"])}
+    assert where in rows
+
+    # Immediately, not in the 8 am summary: a room going in ten minutes is no
+    # use to anybody tomorrow morning.
+    assert rows[where].status == NotificationStatus.SENT
+    assert rows[where].sent_at is not None
+
+
+def test_the_announcement_does_not_double_up_on_somebody_already_told(
+    client, db, users, departments, rooms, day, announced_to
+):
+    """Point it at the booker and they get one message, not two."""
+    announced_to(users["rahul"].email)
+
+    created = post_booking(
+        client,
+        users["rahul"],
+        room_id="ignite",
+        day=day,
+        entry="14:00",
+        exit_="15:00",
+        department_id=departments["Finance"].id,
+        conducted_by=users["rahul"].id,
+    )
+    assert created.status_code == 201, created.text
+
+    addressed = [r.recipient for r in logs_for(db, created.json()["id"])]
+    assert addressed.count(users["rahul"].email) == 1
+
+
+def test_no_announcement_address_means_no_extra_recipient(
+    client, db, users, departments, rooms, day
+):
+    """Empty is the default, and it must not address the empty string."""
+    created = post_booking(
+        client,
+        users["rahul"],
+        room_id="ignite",
+        day=day,
+        entry="14:00",
+        exit_="15:00",
+        department_id=departments["Finance"].id,
+        conducted_by=users["rahul"].id,
+    )
+    assert created.status_code == 201, created.text
+
+    addressed = [r.recipient for r in logs_for(db, created.json()["id"])]
+    assert "" not in addressed
+    assert len(addressed) == len(set(addressed))
 
 
 def test_branch_group_is_logged_but_deferred_to_the_daily_summary(db, booking):

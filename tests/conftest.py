@@ -25,6 +25,7 @@ from app.core.security import (
 )
 from app.database import SessionLocal, engine
 from app.main import app
+from app.services import notifications
 from app.models import AuditLog, Booking, Department, Holiday, Room, User
 
 # Every booking a test creates carries this, so cleanup can find them all.
@@ -98,6 +99,41 @@ def signed_in_mode(monkeypatch):
 def open_access(monkeypatch):
     """The shipped default: no sign-in at all."""
     monkeypatch.setattr(settings, "sign_in_required", False)
+
+
+@pytest.fixture(autouse=True)
+def notifications_stay_off_the_network(monkeypatch):
+    """No test ever sends real mail.
+
+    Three tests open the app's lifespan (``with TestClient(app)``), which calls
+    configure_transport() and installs whatever .env describes. The transport is
+    a module-level global, so it then stays installed for every test that runs
+    afterwards - and with real SMTP credentials in .env that means the suite
+    starts trying to reach a mail server, slowly and from inside assertions
+    about something else entirely.
+
+    Both ends are pinned: the switch is off, so a lifespan that does run picks
+    stdout, and the transport is put back to stdout before each test in case one
+    already did.
+    """
+    monkeypatch.setattr(settings, "notifications_enabled", False)
+    # Synchronous too: an assertion about a SENT row cannot wait on a thread,
+    # and the stdout transport takes no time worth deferring. The async path has
+    # its own tests, which turn it back on deliberately.
+    monkeypatch.setattr(settings, "notifications_async", False)
+    notifications.set_transport(notifications.StdoutTransport())
+
+
+@pytest.fixture(autouse=True)
+def no_announcement_address(monkeypatch):
+    """No extra announcement recipient unless a test asks for one.
+
+    BOOKING_ANNOUNCE_EMAIL is a deployment's choice and it lives in .env, so
+    leaving it ambient would make the section 8 recipient counts pass or fail
+    depending on whose laptop the suite is running on. Tests that care about it
+    set it themselves.
+    """
+    monkeypatch.setattr(settings, "booking_announce_email", "")
 
 
 @pytest.fixture(autouse=True)
