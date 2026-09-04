@@ -117,6 +117,10 @@ def notifications_stay_off_the_network(monkeypatch):
     already did.
     """
     monkeypatch.setattr(settings, "notifications_enabled", False)
+    # And no credentials for a real transport, whatever .env happens to hold.
+    # A refresh token sitting in a developer's .env would otherwise make
+    # configure_transport() pick Gmail in tests that are asserting about SMTP.
+    monkeypatch.setattr(settings, "gmail_refresh_token", "")
     # Synchronous too: an assertion about a SENT row cannot wait on a thread,
     # and the stdout transport takes no time worth deferring. The async path has
     # its own tests, which turn it back on deliberately.

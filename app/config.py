@@ -127,8 +127,24 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     smtp_starttls: bool = True
+    # The From header, and the identity mail is sent as. Named for SMTP because
+    # that came first; it applies to whichever transport is installed.
     smtp_from_email: str = "nm-meet@example.invalid"
     smtp_from_name: str = "NM Meet"
+
+    # ---- Gmail API ----------------------------------------------------------
+    # Preferred over SMTP wherever a refresh token exists, and on Render it is
+    # the only thing that works at all: free instances have outbound ports 25,
+    # 465 and 587 blocked, so every SMTP attempt dies on a twenty-second
+    # timeout. HTTPS is open - the same process talks to Google's token
+    # endpoint on every sign-in - so the Gmail REST API goes straight out.
+    #
+    # The refresh token is minted once, by scripts/gmail_authorise.py, against
+    # the mailbox the mail should come from. Nothing here is a password: the
+    # scope is gmail.send alone, which cannot read a single message.
+    gmail_client_id: str = ""
+    gmail_client_secret: str = ""
+    gmail_refresh_token: str = ""
     # Spec section 8 recipients that are mailboxes rather than directory users.
     # Send the mail after the response instead of during it. SMTP is slow -
     # Gmail takes three or four seconds per message and a booking produces

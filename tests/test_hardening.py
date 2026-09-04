@@ -250,3 +250,122 @@ def test_smtp_never_dials_over_ipv6(monkeypatch):
 
     assert "_IPv4SMTP" in inspect.getsource(transports.SmtpTransport.send)
     assert issubclass(transports._IPv4SMTP, __import__("smtplib").SMTP)
+
+
+# =============================================================================
+# The Gmail API transport
+# =============================================================================
+# Render's free instances block outbound 25, 465 and 587, so SMTP cannot work
+# there at all. HTTPS is open, and this goes out over it.
+
+
+@pytest.fixture()
+def gmail_configured(monkeypatch):
+    monkeypatch.setattr(settings, "notifications_enabled", True)
+    monkeypatch.setattr(settings, "gmail_client_id", "test-client.apps.googleusercontent.com")
+    monkeypatch.setattr(settings, "gmail_client_secret", "test-secret")
+    monkeypatch.setattr(settings, "gmail_refresh_token", "test-refresh-token")
+
+
+def test_gmail_wins_over_smtp_when_both_are_configured(gmail_configured, monkeypatch):
+    """A host that blocks SMTP is the reason this exists, so it goes first."""
+    monkeypatch.setattr(settings, "smtp_host", "smtp.example.invalid")
+    try:
+        assert configure_transport() == "gmail-api"
+        assert notifications.get_transport().name == "gmail-api"
+    finally:
+        monkeypatch.setattr(settings, "notifications_enabled", False)
+        configure_transport()
+
+
+def test_smtp_is_still_used_when_there_is_no_refresh_token(monkeypatch):
+    monkeypatch.setattr(settings, "notifications_enabled", True)
+    monkeypatch.setattr(settings, "gmail_refresh_token", "")
+    monkeypatch.setattr(settings, "smtp_host", "smtp.example.invalid")
+    try:
+        assert configure_transport() == "smtp"
+    finally:
+        monkeypatch.setattr(settings, "notifications_enabled", False)
+        configure_transport()
+
+
+def test_gmail_sends_the_message_base64url_encoded(monkeypatch, users, departments, rooms, day):
+    """What Gmail is actually handed: the whole RFC822 message, url-safe base64.
+
+    Plain base64 would be wrong in a way that only shows up on some messages -
+    `+` and `/` appear once the body happens to encode to them - so the padding
+    and alphabet are worth pinning rather than trusting.
+    """
+    import base64
+
+    sent = {}
+
+    class _Response:
+        status_code = 200
+
+        def json(self):
+            return {"access_token": "an-access-token"}
+
+    def fake_post(url, **kwargs):
+        if url.endswith("/token"):
+            return _Response()
+        sent["url"] = url
+        sent["auth"] = kwargs["headers"]["Authorization"]
+        sent["raw"] = kwargs["json"]["raw"]
+        return _Response()
+
+    monkeypatch.setattr(transports.httpx, "post", fake_post)
+
+    transport = transports.GmailApiTransport(
+        client_id="id", client_secret="secret", refresh_token="refresh",
+        from_email="reception@shreenm.com", from_name="NM Meet - Reception",
+    )
+    recipient = notifications.Recipient(
+        email="priya.nair@shreenm.com", name="Priya Nair", kind=notifications.ATTENDEE
+    )
+    transport.send(
+        notifications.RenderedMessage(
+            recipient=recipient,
+            event=NotificationEvent.BOOKED,
+            subject="Room booked: Power",
+            body="Room          Power",
+        )
+    )
+
+    assert sent["url"].startswith("https://gmail.googleapis.com/")
+    assert sent["auth"] == "Bearer an-access-token"
+
+    decoded = base64.urlsafe_b64decode(sent["raw"]).decode("utf-8")
+    assert "Subject: Room booked: Power" in decoded
+    assert "To: Priya Nair <priya.nair@shreenm.com>" in decoded
+    assert "reception@shreenm.com" in decoded
+    assert "Room          Power" in decoded
+
+
+def test_a_refused_refresh_token_is_an_error_not_a_silent_pass(monkeypatch):
+    """A revoked token, or one from a consent screen still in Testing after its
+    seven days, must fail loudly enough to reach the notification log."""
+
+    class _Refused:
+        status_code = 400
+        text = '{"error": "invalid_grant"}'
+
+        def json(self):
+            return {}
+
+    monkeypatch.setattr(transports.httpx, "post", lambda url, **kw: _Refused())
+
+    transport = transports.GmailApiTransport(
+        client_id="id", client_secret="secret", refresh_token="stale",
+    )
+    with pytest.raises(RuntimeError, match="refresh token"):
+        transport.send(
+            notifications.RenderedMessage(
+                recipient=notifications.Recipient(
+                    email="x@shreenm.com", name="X", kind=notifications.ATTENDEE
+                ),
+                event=NotificationEvent.BOOKED,
+                subject="s",
+                body="b",
+            )
+        )

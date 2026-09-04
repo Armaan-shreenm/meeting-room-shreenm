@@ -9,7 +9,10 @@ Two implementations:
 * :class:`StdoutTransport` (in ``notifications``) renders the whole message to
   stdout. That is what runs when SMTP is not configured, and it is not a
   degraded mode - on Render the log stream is a real, greppable record.
-* :class:`SmtpTransport` here sends real mail.
+* :class:`SmtpTransport` here sends real mail over SMTP.
+* :class:`GmailApiTransport` sends it over HTTPS instead, which is the only
+  thing that works where SMTP ports are blocked. Preferred when a refresh
+  token is configured.
 
 Selection is by configuration alone, in :func:`configure_transport`. Nothing else
 in the system knows or cares which one is installed.
@@ -17,11 +20,14 @@ in the system knows or cares which one is installed.
 
 from __future__ import annotations
 
+import base64
 import logging
 import smtplib
 import socket
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
+
+import httpx
 
 from app.config import settings
 from app.services.notifications import (
@@ -134,6 +140,101 @@ class SmtpTransport:
         )
 
 
+class GmailApiTransport:
+    """Send through Gmail's REST API, over HTTPS.
+
+    Exists because SMTP is not reachable everywhere. Render's free instances
+    block outbound 25, 465 and 587 outright - the connection is not refused,
+    it is dropped, so every message dies on a twenty-second timeout - while
+    HTTPS is wide open. This talks to Gmail on 443 like any other API call.
+
+    Authentication is a refresh token for one mailbox, minted once by
+    scripts/gmail_authorise.py. The scope is ``gmail.send`` and nothing else:
+    this may put a message in the outbox and may not read a single one. An
+    app password, by contrast, is full IMAP and SMTP access to the account.
+    """
+
+    name = "gmail-api"
+
+    SEND_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
+    TOKEN_URL = "https://oauth2.googleapis.com/token"
+
+    def __init__(
+        self,
+        client_id: str,
+        client_secret: str,
+        refresh_token: str,
+        from_email: str = "",
+        from_name: str = "",
+        timeout: int = 20,
+    ) -> None:
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.refresh_token = refresh_token
+        self.from_email = from_email
+        self.from_name = from_name
+        self.timeout = timeout
+
+    def build(self, message: RenderedMessage) -> EmailMessage:
+        mail = EmailMessage()
+        mail["Subject"] = message.subject
+        mail["From"] = formataddr((self.from_name, self.from_email))
+        mail["To"] = formataddr((message.recipient.name, message.recipient.email))
+        mail.set_content(message.body)
+        return mail
+
+    def _access_token(self) -> str:
+        """Trade the refresh token for an access token good for an hour.
+
+        Done per message rather than cached: a booking sends two or three, the
+        call costs a fraction of a second, and a cache would have to survive a
+        worker Render stops without warning.
+        """
+        response = httpx.post(
+            self.TOKEN_URL,
+            data={
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
+                "refresh_token": self.refresh_token,
+                "grant_type": "refresh_token",
+            },
+            timeout=self.timeout,
+        )
+        if response.status_code != 200:
+            # Google's body names the fault - a revoked token, a wrong secret,
+            # a consent screen still in testing whose tokens expire after seven
+            # days. It goes to the log; the caller only needs to know it failed.
+            raise RuntimeError(
+                f"Gmail refused the refresh token: {response.status_code} {response.text}"
+            )
+
+        token = response.json().get("access_token")
+        if not token:
+            raise RuntimeError("Gmail returned no access token")
+        return token
+
+    def send(self, message: RenderedMessage) -> None:
+        mail = self.build(message)
+        raw = base64.urlsafe_b64encode(mail.as_bytes()).decode("ascii")
+
+        response = httpx.post(
+            self.SEND_URL,
+            headers={"Authorization": f"Bearer {self._access_token()}"},
+            json={"raw": raw},
+            timeout=self.timeout,
+        )
+        if response.status_code not in (200, 202):
+            raise RuntimeError(
+                f"Gmail refused the message: {response.status_code} {response.text}"
+            )
+
+        logger.info(
+            "Sent %s to %s over the Gmail API",
+            message.event.value,
+            message.recipient.email,
+        )
+
+
 def configure_transport() -> str:
     """Install the right transport for this environment, and say which.
 
@@ -142,6 +243,19 @@ def configure_transport() -> str:
     failing every notification: section 8 says notifications are always sent, so
     losing them silently is the one outcome to avoid.
     """
+    if settings.notifications_enabled and settings.gmail_refresh_token:
+        set_transport(
+            GmailApiTransport(
+                client_id=settings.gmail_client_id,
+                client_secret=settings.gmail_client_secret,
+                refresh_token=settings.gmail_refresh_token,
+                from_email=settings.smtp_from_email,
+                from_name=settings.smtp_from_name,
+            )
+        )
+        logger.info("Notifications will be sent over the Gmail API as %s", settings.smtp_from_email)
+        return "gmail-api"
+
     if settings.notifications_enabled and settings.smtp_host:
         set_transport(
             SmtpTransport(

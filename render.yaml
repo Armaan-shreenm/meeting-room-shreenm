@@ -157,6 +157,21 @@ services:
         sync: false
       - key: SMTP_FROM_NAME
         value: NM Meet
+
+      # ---- Gmail API --------------------------------------------------------
+      # This is what actually delivers on Render. Free instances block outbound
+      # SMTP (25, 465, 587) - the connection is dropped rather than refused, so
+      # every message dies on a timeout - while HTTPS is open. With a refresh
+      # token set the Gmail API is used and SMTP is not attempted at all.
+      #
+      # Mint the token once with scripts/gmail_authorise.py, signed in as the
+      # mailbox the mail should come from. sync:false: it is a credential.
+      - key: GMAIL_CLIENT_ID
+        sync: false
+      - key: GMAIL_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_REFRESH_TOKEN
+        sync: false
       - key: RECEPTION_EMAIL
         sync: false
       # The branch list, told about every booking the moment it is made.
