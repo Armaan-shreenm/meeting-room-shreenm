@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import smtplib
+import socket
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 
@@ -30,6 +31,51 @@ from app.services.notifications import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _ipv4_socket(host: str, port: int, timeout: float):
+    """Open a TCP connection to ``host``, over IPv4 only.
+
+    ``socket.create_connection`` walks whatever ``getaddrinfo`` returns. Where
+    that includes an IPv6 address and the host has no IPv6 route - which is the
+    case on Render - the attempt fails with ``[Errno 101] Network is
+    unreachable`` and the mail never leaves. Asking for AF_INET makes the
+    resolver return only addresses this container can actually reach.
+
+    Falls back to the ordinary dual-stack connect if the name has no IPv4
+    address at all, so this cannot make a working setup stop working.
+    """
+    try:
+        candidates = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+    except socket.gaierror:
+        candidates = []
+
+    if not candidates:
+        return socket.create_connection((host, port), timeout)
+
+    last: OSError | None = None
+    for family, socktype, proto, _canonname, sockaddr in candidates:
+        sock = socket.socket(family, socktype, proto)
+        try:
+            sock.settimeout(timeout)
+            sock.connect(sockaddr)
+            return sock
+        except OSError as exc:
+            last = exc
+            sock.close()
+
+    raise last if last is not None else OSError(f"could not reach {host}:{port}")
+
+
+class _IPv4SMTP(smtplib.SMTP):
+    """smtplib, but never over IPv6.
+
+    Only the socket changes. ``self._host`` is still the hostname, so STARTTLS
+    validates the certificate against the name and not against an address.
+    """
+
+    def _get_socket(self, host, port, timeout):  # noqa: D102 - overriding smtplib
+        return _ipv4_socket(host, port, timeout)
 
 
 class SmtpTransport:
@@ -74,7 +120,7 @@ class SmtpTransport:
     def send(self, message: RenderedMessage) -> None:
         mail = self.build(message)
 
-        with smtplib.SMTP(self.host, self.port, timeout=self.timeout) as server:
+        with _IPv4SMTP(self.host, self.port, timeout=self.timeout) as server:
             server.ehlo()
             if self.use_starttls:
                 server.starttls()

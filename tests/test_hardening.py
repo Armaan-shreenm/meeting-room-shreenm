@@ -19,6 +19,7 @@ from app.models import (
     NotificationEvent,
 )
 from app.services import notifications
+from app.services import transports
 from app.services.transports import SmtpTransport, configure_transport
 from tests.conftest import (
     TEST_TITLE_PREFIX,
@@ -212,3 +213,40 @@ def test_smtp_transport_builds_a_well_formed_message(db, users, departments, roo
     assert mail["From"] == "NM Meet <nm-meet@shreenm.com>"
     assert "Power" in mail["Subject"]
     assert "1 pm to 3 pm" in mail.get_content()
+
+
+def test_smtp_never_dials_over_ipv6(monkeypatch):
+    """The socket must be IPv4, whatever the resolver would otherwise offer.
+
+    Render's containers have no IPv6 route. Left to itself smtplib walks
+    everything getaddrinfo returns, hits an AAAA record and dies with
+    `[Errno 101] Network is unreachable` - which is what production did, on
+    every single notification, while HTTPS to Google worked fine from the same
+    process.
+    """
+    import socket
+
+    asked = {}
+    real = socket.getaddrinfo
+
+    def spy(host, port, family=0, *args, **kwargs):
+        asked["family"] = family
+        raise socket.gaierror("no lookups in the test suite")
+
+    monkeypatch.setattr(socket, "getaddrinfo", spy)
+    monkeypatch.setattr(
+        socket, "create_connection", lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError("fell back to a dual-stack connect")
+        )
+    )
+
+    with pytest.raises(AssertionError):
+        transports._ipv4_socket("smtp.example.invalid", 587, 1)
+
+    assert asked["family"] == socket.AF_INET
+
+    # And the transport actually uses it, rather than plain smtplib.
+    import inspect
+
+    assert "_IPv4SMTP" in inspect.getsource(transports.SmtpTransport.send)
+    assert issubclass(transports._IPv4SMTP, __import__("smtplib").SMTP)
