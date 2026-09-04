@@ -1,4 +1,4 @@
-"""Phase 7 - rate limiting, request ids, error handling and the daily summary."""
+"""Phase 7 - rate limiting, request ids, error handling and the SMTP transport."""
 
 from __future__ import annotations
 
@@ -8,8 +8,6 @@ from datetime import date, timedelta
 import pytest
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
-from sqlalchemy import select
-
 from app.config import settings
 from app.core import messages
 from app.core import time as timeutil
@@ -19,17 +17,13 @@ from app.models import (
     Booking,
     BookingStatus,
     NotificationEvent,
-    NotificationLog,
-    NotificationStatus,
 )
 from app.services import notifications
 from app.services.transports import SmtpTransport, configure_transport
-from scripts import daily_summary
 from tests.conftest import (
     TEST_TITLE_PREFIX,
     booking_payload,
     headers_for,
-    working_day,
 )
 
 
@@ -218,106 +212,3 @@ def test_smtp_transport_builds_a_well_formed_message(db, users, departments, roo
     assert mail["From"] == "NM Meet <nm-meet@shreenm.com>"
     assert "Power" in mail["Subject"]
     assert "1 pm to 3 pm" in mail.get_content()
-
-
-# =============================================================================
-# The daily 8 am summary
-# =============================================================================
-
-
-def test_summary_lists_the_days_bookings_grouped_by_room(
-    client, db, users, departments, rooms, day
-):
-    for room_id, entry, exit_ in (
-        ("power", "13:00", "15:00"),
-        ("pulse", "10:00", "11:00"),
-    ):
-        created = post_booking(
-            client,
-            users["rahul"],
-            room_id=room_id,
-            day=day,
-            entry=entry,
-            exit_=exit_,
-            department_id=departments["Sales"].id,
-            conducted_by=users["rahul"].id,
-            title=f"{TEST_TITLE_PREFIX} summary {room_id}",
-        )
-        assert created.status_code == 201
-
-    message = daily_summary.render_summary(day, daily_summary.bookings_on(db, day))
-
-    assert "POWER" in message.body
-    assert "PULSE" in message.body
-    assert "1 pm to 3 pm" in message.body
-    assert "10 am to 11 am" in message.body
-    assert "2 meeting(s) in total." in message.body
-    # Times are written the spec's way, never as 24-hour clock.
-    assert "13:00" not in message.body
-
-
-def test_summary_says_so_when_nothing_is_booked(db):
-    empty_day = working_day(80)
-    message = daily_summary.render_summary(empty_day, [])
-    assert "Nothing is booked today." in message.body
-
-
-def test_summary_marks_queued_branch_rows_sent(
-    client, db, users, departments, rooms, day
-):
-    """D-01: the branch group's copies are cleared by this job, not per booking."""
-    created = post_booking(
-        client,
-        users["rahul"],
-        room_id="ignite",
-        day=day,
-        entry="11:00",
-        exit_="12:00",
-        department_id=departments["Sales"].id,
-        conducted_by=users["rahul"].id,
-        title=f"{TEST_TITLE_PREFIX} summary clears",
-    )
-    booking_id = uuid.UUID(created.json()["id"])
-
-    branch_row = db.scalar(
-        select(NotificationLog).where(
-            NotificationLog.booking_id == booking_id,
-            NotificationLog.recipient == settings.mumbai_group_email,
-        )
-    )
-    assert branch_row.status == NotificationStatus.QUEUED
-
-    daily_summary.run(day)
-
-    db.expire_all()
-    branch_row = db.scalar(
-        select(NotificationLog).where(
-            NotificationLog.booking_id == booking_id,
-            NotificationLog.recipient == settings.mumbai_group_email,
-        )
-    )
-    assert branch_row.status == NotificationStatus.SENT
-    assert branch_row.sent_at is not None
-
-
-def test_running_the_summary_twice_sends_nothing_the_second_time(
-    client, db, users, departments, rooms, day
-):
-    """Idempotent, so a retry after a failure is safe."""
-    post_booking(
-        client,
-        users["rahul"],
-        room_id="switch",
-        day=day,
-        entry="16:00",
-        exit_="17:00",
-        department_id=departments["Sales"].id,
-        conducted_by=users["rahul"].id,
-        title=f"{TEST_TITLE_PREFIX} summary idempotent",
-    )
-
-    first = daily_summary.run(day)
-    second = daily_summary.run(day)
-
-    assert first >= 1
-    assert second == 0

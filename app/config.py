@@ -140,22 +140,16 @@ class Settings(BaseSettings):
     # can look at it, and where the transport is stdout and instant anyway.
     notifications_async: bool = True
     reception_email: str = "reception.mumbai@shreenm.com"
+    # The branch-wide distribution list, told about every booking the moment it
+    # is made.
+    #
+    # This used to be a daily 8 am digest (decision D-01), on the reasoning that
+    # a message per booking would be noise. In practice the opposite is true:
+    # reception books on everybody's behalf, so nobody is named as an attendee
+    # and the host is the receptionist, and a summary the next morning tells the
+    # branch about rooms that have already been used. So it is immediate, and
+    # the digest is gone.
     mumbai_group_email: str = "mumbai.all@shreenm.com"
-    # One address told about every booking, the moment it is made.
-    #
-    # Reception books on everybody's behalf, so the people who need to know a
-    # room has gone are not on the booking at all - nobody is named as an
-    # attendee and the host is the receptionist. This is the address that finds
-    # out anyway. Empty means nobody extra is written to, which is why it is
-    # safe to leave unset.
-    #
-    # It will become the branch-wide list; until then it is one mailbox. Note
-    # that mumbai_group_email above is the *deferred* daily summary (D-01) and
-    # this one is immediate - pointing both at the same list would send that
-    # list a message per booking and a summary of the same bookings at 8 am.
-    booking_announce_email: str = ""
-    # D-01: the branch list gets one summary at this local hour, not a mail per booking.
-    daily_summary_hour: int = 8
     # D-02: an .ics invite is attached; no video-conference link is created.
     calendar_invite_enabled: bool = True
 

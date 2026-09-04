@@ -16,9 +16,9 @@ is deliberately not built.
 - **Cannot double-book.** Three layers, and the third is a PostgreSQL exclusion
   constraint that physically refuses an overlapping row.
 - Cancel, edit the details, release a no-show, accept or decline an invitation.
-- Notifies attendees, the conductor, reception and the booker immediately, and
-  the branch group in a daily 8 am summary.
-- Email and password sign-in, with permissions enforced on the server.
+- Notifies attendees, the conductor, reception, the booker and the branch group
+  immediately.
+- Google Sign-In, with permissions enforced on the server.
 
 Mon-Sat working, Sunday closed. 30 minutes minimum, 4 hours maximum, 90 days
 ahead. Times are stored as `timestamptz` in UTC and shown in Asia/Kolkata.
@@ -183,7 +183,7 @@ Every one is documented in `.env.example`. The ones that matter:
 | `NOTIFICATIONS_ENABLED` | `false` | `true` **and** `SMTP_HOST` set switches to real mail; otherwise stdout |
 | `SMTP_*` | blank | Host, port, user, password, STARTTLS, from address |
 | `RECEPTION_EMAIL` | `reception.mumbai@shreenm.com` | |
-| `MUMBAI_GROUP_EMAIL` | `mumbai.all@shreenm.com` | Daily summary only (D-01) |
+| `MUMBAI_GROUP_EMAIL` | `mumbai.all@shreenm.com` | The branch list, told about every booking immediately |
 | `PUBLIC_BASE_URL` | `http://localhost:8000` | Builds the "view or cancel" link in every message |
 | `RATE_LIMIT_BOOKINGS` | `20` | Booking writes per user per window |
 
@@ -230,14 +230,6 @@ print(password)   # give it to them, then forget it
 
 To remove somebody, set `is_active = False`. Never delete: their bookings
 reference them and the audit record must survive.
-
-**Send the daily summary by hand.**
-
-```bash
-python -m scripts.daily_summary --dry-run     # print it
-python -m scripts.daily_summary               # send and mark SENT
-python -m scripts.daily_summary --date 2026-09-01
-```
 
 **Run one QA suite.**
 
@@ -303,9 +295,6 @@ If that returns no row the deploy is not usable, whatever the health check says.
 - A free PostgreSQL database **expires 30 days after creation**, with a 14-day
   grace period before Render deletes it and its data. Move to a paid plan before
   real bookings exist.
-- **Cron jobs are a paid feature.** `nm-meet-daily-summary` is defined in
-  `render.yaml` and ignored on the free plan. Run the script by hand or from
-  another scheduler until the account is upgraded.
 
 ---
 
@@ -325,10 +314,10 @@ nm_meet/
 │   └── core/                auth, security, messages, time, errors, middleware,
 │                            logging
 ├── alembic/versions/        0001 schema + constraint, 0002 passwords
-├── scripts/                 seed, verify_constraint, load_holidays, daily_summary
+├── scripts/                 seed, verify_constraint, load_holidays
 ├── static/                  index.html (the approved prototype), login.html
 ├── tests/                   150 tests, including T01-T15 as a named suite
-├── render.yaml              web service + database + daily summary cron
+├── render.yaml              web service + database
 ├── start.sh                 migrate → seed → serve
 └── HANDOVER.md              decisions, open questions, what is not built
 ```

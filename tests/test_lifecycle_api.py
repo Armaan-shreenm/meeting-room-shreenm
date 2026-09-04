@@ -191,20 +191,14 @@ def test_the_request_does_not_wait_for_the_mail_to_be_sent(
         # have carried any of it.
         assert elapsed < 1.0, f"the POST waited {elapsed:.2f}s for the transport"
 
-        # Everyone except the branch group, which is deferred to the 8 am
-        # summary and so is never handed to a transport at all.
-        rows = logs_for(db, created.json()["id"])
-        expected = [
-            r for r in rows if r.recipient != settings.mumbai_group_email
-        ]
-        assert len(expected) >= 2, [r.recipient for r in rows]
+        # Nothing is deferred any more, so every recipient is a real send.
+        want = len(logs_for(db, created.json()["id"]))
+        assert want >= 3
 
-        rows = _settle(db, created.json()["id"], want=len(expected))
-        assert slow.sent == len(expected)
+        rows = _settle(db, created.json()["id"], want=want)
+        assert slow.sent == want
         assert all(
-            r.status == NotificationStatus.SENT
-            for r in rows
-            if r.recipient != settings.mumbai_group_email
+            r.status == NotificationStatus.SENT for r in rows
         ), [(r.recipient, r.status.value) for r in rows]
     finally:
         notifications.set_transport(notifications.StdoutTransport())
@@ -229,7 +223,7 @@ def test_a_message_that_fails_on_the_thread_is_recorded_not_lost(
         )
         assert created.status_code == 201, created.text
 
-        rows = _settle(db, created.json()["id"], want=2)
+        rows = _settle(db, created.json()["id"], want=3)
         failed = [r for r in rows if r.status == NotificationStatus.FAILED]
         assert failed, [(r.recipient, r.status) for r in rows]
         assert "the relay refused it" in failed[0].error
@@ -257,7 +251,7 @@ def test_a_booking_that_never_commits_announces_nothing(
         conducted_by=users["rahul"].id,
     )
     assert created.status_code == 201, created.text
-    _settle(db, created.json()["id"], want=2)
+    _settle(db, created.json()["id"], want=3)
 
     # Only now, so the recorder sees nothing but the rolled-back attempt.
     recorder = _Recorder()
@@ -280,28 +274,28 @@ def test_a_booking_that_never_commits_announces_nothing(
 
 
 # -----------------------------------------------------------------------------
-# The announcement address
+# The branch list
 # -----------------------------------------------------------------------------
 # Reception books on behalf of people who are not on the booking: nobody is
-# named as an attendee and the host is the receptionist. Without this address
-# nobody outside the front desk would ever hear that a room had gone.
+# named as an attendee and the host is the receptionist. The branch list is the
+# only audience that would otherwise never hear that a room had gone.
 
 
 @pytest.fixture()
-def announced_to(monkeypatch):
-    """Point BOOKING_ANNOUNCE_EMAIL somewhere and hand back the address."""
+def branch_group_at(monkeypatch):
+    """Point MUMBAI_GROUP_EMAIL somewhere and hand back the address."""
 
     def _set(email: str) -> str:
-        monkeypatch.setattr(settings, "booking_announce_email", email)
+        monkeypatch.setattr(settings, "mumbai_group_email", email)
         return email
 
     return _set
 
 
-def test_the_announcement_address_hears_about_every_booking(
-    client, db, users, departments, rooms, day, announced_to
+def test_the_branch_list_hears_about_every_booking(
+    client, db, users, departments, rooms, day, branch_group_at
 ):
-    where = announced_to("bookings.mumbai@shreenm.com")
+    where = branch_group_at("bookings.mumbai@shreenm.com")
 
     created = post_booking(
         client,
@@ -318,17 +312,23 @@ def test_the_announcement_address_hears_about_every_booking(
     rows = {r.recipient: r for r in logs_for(db, created.json()["id"])}
     assert where in rows
 
-    # Immediately, not in the 8 am summary: a room going in ten minutes is no
-    # use to anybody tomorrow morning.
+    # Immediately. A room going in ten minutes is no use to anybody tomorrow
+    # morning, which is why the daily digest was dropped.
     assert rows[where].status == NotificationStatus.SENT
     assert rows[where].sent_at is not None
 
 
-def test_the_announcement_does_not_double_up_on_somebody_already_told(
-    client, db, users, departments, rooms, day, announced_to
+def test_the_branch_list_does_not_double_up_on_somebody_already_told(
+    client, db, users, departments, rooms, day, branch_group_at
 ):
-    """Point it at the booker and they get one message, not two."""
-    announced_to(users["rahul"].email)
+    """Point it at the booker and they get one message, not two.
+
+    Worth pinning: an earlier version had two separate entries for the branch -
+    one immediate, one deferred - and pointing both at the same address made the
+    deferred one win the deduplication, so the message was logged and never
+    sent. One entry cannot lose that argument with itself.
+    """
+    branch_group_at(users["rahul"].email)
 
     created = post_booking(
         client,
@@ -342,14 +342,21 @@ def test_the_announcement_does_not_double_up_on_somebody_already_told(
     )
     assert created.status_code == 201, created.text
 
-    addressed = [r.recipient for r in logs_for(db, created.json()["id"])]
+    rows = logs_for(db, created.json()["id"])
+    addressed = [r.recipient for r in rows]
     assert addressed.count(users["rahul"].email) == 1
 
+    # And the one copy is actually sent, not quietly parked.
+    mine = next(r for r in rows if r.recipient == users["rahul"].email)
+    assert mine.status == NotificationStatus.SENT
 
-def test_no_announcement_address_means_no_extra_recipient(
-    client, db, users, departments, rooms, day
+
+def test_no_branch_list_means_no_extra_recipient(
+    client, db, users, departments, rooms, day, branch_group_at
 ):
-    """Empty is the default, and it must not address the empty string."""
+    """A deployment with no branch list must not address the empty string."""
+    branch_group_at("")
+
     created = post_booking(
         client,
         users["rahul"],
@@ -367,17 +374,21 @@ def test_no_announcement_address_means_no_extra_recipient(
     assert len(addressed) == len(set(addressed))
 
 
-def test_branch_group_is_logged_but_deferred_to_the_daily_summary(db, booking):
-    """D-01: the Mumbai list gets a daily 8 am summary, not a mail per booking."""
+def test_the_branch_group_is_told_immediately_like_everybody_else(db, booking):
+    """It used to be held back for a daily 8 am digest. It is not any more.
+
+    Reception books for people who are not on the booking, so the branch list is
+    the only audience that would otherwise never hear - and hearing tomorrow
+    morning about a room already used is no use to anybody. Nothing is deferred:
+    every row is sent.
+    """
     rows = {r.recipient: r for r in logs_for(db, booking["id"])}
 
     branch = rows[settings.mumbai_group_email]
-    assert branch.status == NotificationStatus.QUEUED
-    assert branch.sent_at is None
+    assert branch.status == NotificationStatus.SENT
+    assert branch.sent_at is not None
 
     for email, row in rows.items():
-        if email == settings.mumbai_group_email:
-            continue
         assert row.status == NotificationStatus.SENT, email
         assert row.sent_at is not None
 

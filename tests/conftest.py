@@ -125,15 +125,15 @@ def notifications_stay_off_the_network(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def no_announcement_address(monkeypatch):
-    """No extra announcement recipient unless a test asks for one.
+def a_known_branch_group(monkeypatch):
+    """Pin the branch list to a fixed address.
 
-    BOOKING_ANNOUNCE_EMAIL is a deployment's choice and it lives in .env, so
-    leaving it ambient would make the section 8 recipient counts pass or fail
-    depending on whose laptop the suite is running on. Tests that care about it
-    set it themselves.
+    Which address a deployment points it at is its own business and lives in
+    .env, so leaving it ambient would make the section 8 recipient counts below
+    pass or fail depending on whose laptop the suite runs on - and would collide
+    outright if somebody pointed it at one of the test users.
     """
-    monkeypatch.setattr(settings, "booking_announce_email", "")
+    monkeypatch.setattr(settings, "mumbai_group_email", "mumbai.all@shreenm.com")
 
 
 @pytest.fixture(autouse=True)

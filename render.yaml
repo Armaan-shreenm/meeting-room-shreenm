@@ -159,36 +159,11 @@ services:
         value: NM Meet
       - key: RECEPTION_EMAIL
         sync: false
+      # The branch list, told about every booking the moment it is made.
+      # Dashboard-set, because it changes when the real group address exists.
       - key: MUMBAI_GROUP_EMAIL
         sync: false
-      # Told about every booking, immediately - reception books for people who
-      # are not on the booking, so nobody else would hear. Dashboard-set,
-      # because it changes when the branch list takes over from one mailbox.
-      - key: BOOKING_ANNOUNCE_EMAIL
-        sync: false
-      - key: DAILY_SUMMARY_HOUR
-        value: "8"
       - key: CALENDAR_INVITE_ENABLED
         value: "true"
 
-# =============================================================================
-# D-01 - the Mumbai branch group's daily 8 am summary.
-#
-# NOT DEFINED HERE. Render Cron Jobs are a PAID feature, and this blueprint is
-# deliberately free-tier only. A `type: cron` service with `plan: starter` in
-# this file would make the whole blueprint unusable on a free account.
-#
-# Nothing is lost today: NOTIFICATIONS_ENABLED is false, so the summary has no
-# real recipient yet. The job itself is untouched and still runs by hand:
-#
-#     python -m scripts.daily_summary
-#
-# The free replacement for the schedule is .github/workflows/daily-summary.yml
-# in this repository - GitHub Actions runs the same command on the same cron.
-# Read the header of that file before enabling it; it needs the database to
-# accept an external connection, which means relaxing `ipAllowList` above.
-#
-# The in-process scheduler is still the wrong answer: a free web service sleeps
-# after fifteen minutes of inactivity, so a background thread inside it cannot
-# be relied on to be awake at 08:00 IST.
 # =============================================================================

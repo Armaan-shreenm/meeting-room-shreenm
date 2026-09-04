@@ -4,22 +4,20 @@ Notifications are **always sent**. There is no toggle and no opt-out, so this
 module has no "if enabled" branch around whether a recipient is told; the only
 switch is which transport carries the message.
 
-Five recipient groups from the section 8 table, plus one configured address:
+Five recipient groups, per the section 8 table:
 
 * attendees, everyone added in the attendees field
 * conducting, the person running the meeting
 * reception, the Mumbai front desk mailbox
 * Mumbai group, the branch-wide distribution list
 * booker, whoever filled in the form
-* announce, one mailbox told about every booking at once, when
-  ``BOOKING_ANNOUNCE_EMAIL`` is set - reception books for people who are not on
-  the booking, so somebody has to be told who is not otherwise a recipient
 
-D-01 settles the Mumbai group on a **daily 8 am summary** rather than a message
-per booking. That does not remove it as a recipient: a row is still written for
-every event, and it is left ``QUEUED`` for the daily job to pick up. Everyone
-else is sent immediately. So the log always shows the full audience, and what
-differs is when it goes out.
+All five are told immediately. The Mumbai group used to be held back for a daily
+8 am digest (decision D-01), which turned out to be exactly wrong for how the
+system is actually used: reception books on everybody's behalf, so nobody is
+named as an attendee and the host is the receptionist, and the branch is the
+only audience that would otherwise never hear. A digest the next morning
+announces rooms that have already been used. The digest is gone.
 
 Every attempt writes a ``notification_log`` row ``QUEUED`` **before** the send,
 then moves it to ``SENT`` or ``FAILED``. A crash mid-send leaves evidence rather
@@ -62,8 +60,6 @@ CONDUCTOR = "conductor"
 RECEPTION = "reception"
 BRANCH_GROUP = "branch_group"
 BOOKER = "booker"
-# One mailbox told about every booking immediately - see settings.booking_announce_email.
-ANNOUNCE = "announce"
 
 _EVENT_HEADLINE = {
     NotificationEvent.BOOKED: "Room booked",
@@ -74,12 +70,11 @@ _EVENT_HEADLINE = {
 
 @dataclass(frozen=True)
 class Recipient:
-    """One addressee, and whether their copy goes now or in the daily summary."""
+    """One addressee of one event."""
 
     email: str
     name: str
     kind: str
-    deferred: bool = False
 
 
 @dataclass(frozen=True)
@@ -303,25 +298,14 @@ def recipients_for(booking: Booking) -> list[Recipient]:
             kind=RECEPTION,
         )
     )
-    # D-01: logged for every event, delivered in the daily 8 am summary.
-    collected.append(
-        Recipient(
-            email=settings.mumbai_group_email,
-            name=f"{settings.branch_name} branch group",
-            kind=BRANCH_GROUP,
-            deferred=True,
-        )
-    )
-
-    # The announcement address, if one is configured. Deliberately last: it is
-    # deduplicated away when it is already on the booking, so the person who
-    # booked gets one message rather than two.
-    if settings.booking_announce_email:
+    # The branch. Reception books for people who are not on the booking, so
+    # without this nobody outside the front desk hears that a room has gone.
+    if settings.mumbai_group_email:
         collected.append(
             Recipient(
-                email=settings.booking_announce_email,
-                name=f"{settings.branch_name} bookings",
-                kind=ANNOUNCE,
+                email=settings.mumbai_group_email,
+                name=f"{settings.branch_name} branch group",
+                kind=BRANCH_GROUP,
             )
         )
 
@@ -393,7 +377,7 @@ def notify(
     """Notify every recipient of one event. The caller owns the transaction.
 
     Returns the log rows written - one per recipient, always, whether the send
-    succeeded, failed or was deferred to the daily summary.
+    succeeded or failed.
     """
     return notify_recipients(db, booking, event, recipients_for(booking))
 
@@ -423,15 +407,6 @@ def notify_recipients(
         db.add(row)
         db.flush()  # the row exists before anything is attempted
         rows.append(row)
-
-        if recipient.deferred:
-            # D-01: the branch group is collected into the daily 8 am summary.
-            logger.info(
-                "Deferred %s for %s to the daily summary",
-                event.value,
-                recipient.email,
-            )
-            continue
 
         # Rendered here, on this thread, while the booking's room, department,
         # conductor and attendees are all still loaded.

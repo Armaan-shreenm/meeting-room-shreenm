@@ -14,7 +14,7 @@ final and `static/index.html` is that file with only its data layer replaced.
 
 | # | Question | Recommendation | What was built |
 | --- | --- | --- | --- |
-| **D-01** | Every booking to the Mumbai group, or a daily summary? | Daily 8 am summary | **Both halves honoured.** A `notification_log` row is written for the branch group on *every* event and left `QUEUED`; `scripts/daily_summary.py` delivers one summary and marks them `SENT`. Attendees, conductor, reception and booker are sent immediately. This is why T-09 still counts five notifications. |
+| **D-01** | Every booking to the Mumbai group, or a daily summary? | ~~Daily 8 am summary~~ - **reversed on 4 Sep 2026** | **Every booking, immediately.** The digest was the wrong call once reception started booking on everybody's behalf: nobody is named as an attendee, the host is the receptionist, and the branch list is the only audience that would otherwise never hear - so a summary the next morning announced rooms already used. `scripts/daily_summary.py` and its workflow are gone; the branch group is an ordinary recipient. T-09 still counts five notifications, now all sent. |
 | **D-02** | Calendar invite now that Meet is dropped? | Yes, invite; no video link | **Partly built.** `CALENDAR_INVITE_ENABLED` exists and no Google Meet link is ever generated (asserted in tests). The `.ics` attachment itself is **not implemented** - see §5. |
 | **D-03** | Is Saturday a working day? Is Sunday always closed? | Mon-Sat, Sunday closed | Built. `CLOSED_WEEKDAYS=[6]`, computed, never stored as holiday rows. Sunday returns `closed_reason: "weekly_closure"` and the grid greys the day. |
 | **D-04** | Can the conductor be outside the company? | No - directory only | Built. `conducted_by` and every attendee must be an **active** directory user; a deactivated account is refused by name. |
@@ -119,12 +119,6 @@ a single worker freely, and a server-side store would sign everyone out on every
 cold start. Rotating `SECRET_KEY` signs everyone out - that is the intended
 emergency lever.
 
-**The daily summary cron job needs a paid Render plan.** Cron jobs are not on the
-free tier. `nm-meet-daily-summary` is in `render.yaml` on the `starter` plan and
-is simply ignored while the account is free. Until then run
-`python -m scripts.daily_summary` from any scheduler, or by hand. The job is
-idempotent, so a missed day can be caught up and a retry sends nothing twice.
-
 **Free PostgreSQL expires 30 days after creation**, with a 14-day grace period to
 upgrade before Render deletes it and all its data. The free database is fine for
 proving the deploy and unfit for real bookings.
@@ -153,5 +147,6 @@ after that takes about a minute, plus the migration check and seed that
    SELECT recipient, event, status, error, created_at
    FROM notification_log WHERE status = 'FAILED' ORDER BY created_at DESC;
    ```
-   Rows sitting at `QUEUED` for `mumbai.all@shreenm.com` are correct - they are
-   waiting for the daily summary.
+   Nothing should sit at `QUEUED` for long: a row is committed `QUEUED` and the
+   sender thread moves it to `SENT` or `FAILED` within seconds. One that stays
+   means the process died between the commit and the send.

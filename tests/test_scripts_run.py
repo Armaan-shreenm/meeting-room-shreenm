@@ -16,7 +16,7 @@ import sys
 
 import pytest
 
-SCRIPTS = ["seed", "verify_constraint", "load_holidays", "daily_summary"]
+SCRIPTS = ["seed", "verify_constraint", "load_holidays"]
 
 
 @pytest.mark.parametrize("name", SCRIPTS)
