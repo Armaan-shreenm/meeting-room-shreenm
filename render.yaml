@@ -174,8 +174,9 @@ services:
         sync: false
       - key: RECEPTION_EMAIL
         sync: false
-      # The branch list, told about every booking the moment it is made.
-      # Dashboard-set, because it changes when the real group address exists.
+      # The branch list, told about every booking the moment it is made. One
+      # address, or several separated by commas while the real distribution
+      # list does not exist yet. Dashboard-set, because it changes often.
       - key: MUMBAI_GROUP_EMAIL
         sync: false
       - key: CALENDAR_INVITE_ENABLED

@@ -165,6 +165,10 @@ class Settings(BaseSettings):
     # and the host is the receptionist, and a summary the next morning tells the
     # branch about rooms that have already been used. So it is immediate, and
     # the digest is gone.
+    #
+    # One address or several, comma-separated. Singular name, because one real
+    # distribution list is where this ends up; the plural is for the meantime,
+    # when the list does not exist yet and two or three people stand in for it.
     mumbai_group_email: str = "mumbai.all@shreenm.com"
     # D-02: an .ics invite is attached; no video-conference link is created.
     calendar_invite_enabled: bool = True
@@ -250,6 +254,16 @@ class Settings(BaseSettings):
         return self
 
     # ----------------------------------------------------------- conveniences
+    @property
+    def mumbai_group_emails(self) -> list[str]:
+        """The branch list, split into addresses.
+
+        Whitespace is forgiven rather than trusted: these values are typed into
+        a dashboard by hand, and a value pasted with a stray space has already
+        cost this deployment two broken releases.
+        """
+        return [part.strip() for part in self.mumbai_group_email.split(",") if part.strip()]
+
     @property
     def timezone(self) -> ZoneInfo:
         """The branch display timezone."""

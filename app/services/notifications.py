@@ -37,6 +37,7 @@ import logging
 import queue
 import threading
 from dataclasses import dataclass
+from html import escape
 from typing import Protocol
 
 from sqlalchemy import event
@@ -67,6 +68,33 @@ _EVENT_HEADLINE = {
     NotificationEvent.CANCELLED: "Booking cancelled",
 }
 
+# What the HTML message says in large type, and what colour it says it in.
+_EVENT_TITLE = {
+    NotificationEvent.BOOKED: "Your Meeting Room is Booked!",
+    NotificationEvent.CHANGED: "Your Booking Has Changed",
+    NotificationEvent.CANCELLED: "Your Booking Was Cancelled",
+}
+_EVENT_LEAD = {
+    NotificationEvent.BOOKED: "Your meeting room booking has been confirmed.",
+    NotificationEvent.CHANGED: "The details of your meeting room booking have changed.",
+    NotificationEvent.CANCELLED: "This meeting room booking has been cancelled.",
+}
+
+# The palette is index.html's, so a message and the app it came from look like
+# one product. Cancellations borrow the grid's "unavailable" red instead.
+BRAND = "#F5A300"
+BRAND_DARK = "#DB9100"
+CANCELLED = "#D6452F"
+INK = "#1B1A17"
+INK_2 = "#55524B"
+MUTED = "#8C8880"
+PAGE = "#FAF8F5"
+LINE = "#E9E4DC"
+SUNK = "#F7F5F1"
+
+# Referenced from the HTML as <img src="cid:...">, attached by the transport.
+LOGO_CID = "nm-meet-logo"
+
 
 @dataclass(frozen=True)
 class Recipient:
@@ -85,6 +113,10 @@ class RenderedMessage:
     event: NotificationEvent
     subject: str
     body: str
+    # The same message as HTML. Sent alongside the plain text, never instead of
+    # it: a mail client that shows no HTML still gets a complete message, and
+    # the text part is what the notification log is really about.
+    html: str = ""
 
 
 class Transport(Protocol):
@@ -300,10 +332,12 @@ def recipients_for(booking: Booking) -> list[Recipient]:
     )
     # The branch. Reception books for people who are not on the booking, so
     # without this nobody outside the front desk hears that a room has gone.
-    if settings.mumbai_group_email:
+    # Usually one distribution list; several addresses while that list is still
+    # a few named people.
+    for address in settings.mumbai_group_emails:
         collected.append(
             Recipient(
-                email=settings.mumbai_group_email,
+                email=address,
                 name=f"{settings.branch_name} branch group",
                 kind=BRANCH_GROUP,
             )
@@ -323,6 +357,151 @@ def recipients_for(booking: Booking) -> list[Recipient]:
 def booking_link(booking: Booking) -> str:
     """The "view or cancel this booking" link section 8 requires."""
     return f"{settings.public_base_url.rstrip('/')}/?booking={booking.id}"
+
+
+TEMPLATE = """<!DOCTYPE html>
+<html><body style="margin:0;padding:0;background:%(page)s;">
+<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0"
+       style="background:%(page)s;padding:16px 10px;">
+<tr><td align="center">
+
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0"
+       style="max-width:560px;width:100%%;background:#FFFFFF;border:1px solid %(line)s;
+              border-radius:12px;overflow:hidden;">
+
+  <tr><td style="padding:16px 20px;border-bottom:1px solid %(line)s;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="padding-right:10px;">
+        <img src="cid:%(logo_cid)s" width="30" height="30" alt="Shree NM"
+             style="display:block;border:0;"></td>
+      <td style="font-family:%(font)s;font-size:17px;font-weight:bold;color:%(ink)s;
+                 letter-spacing:-0.2px;white-space:nowrap;">Shree NM</td>
+      <td style="padding-left:8px;">
+        <span style="font-family:%(font)s;font-size:9px;font-weight:bold;color:#FFFFFF;
+                     background:%(accent)s;padding:3px 6px;border-radius:3px;
+                     letter-spacing:1.2px;">MEET</span></td>
+    </tr></table>
+  </td></tr>
+
+  <tr><td align="center" style="padding:20px 20px 0 20px;">
+    <div style="font-family:%(font)s;font-size:19px;line-height:1.3;font-weight:bold;
+                color:%(ink)s;">%(title)s</div>
+    <div style="font-family:%(font)s;font-size:13px;color:%(muted)s;padding-top:7px;">
+      %(greeting)s %(lead)s</div>
+  </td></tr>
+
+  <tr><td style="padding:16px 20px 0 20px;">
+    <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0"
+           style="border:1px solid %(line)s;border-radius:8px;overflow:hidden;">
+      %(rows)s
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:16px 20px 20px 20px;">
+    <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0"
+           style="background:%(sunk)s;border:1px solid %(line)s;border-radius:8px;">
+      <tr><td align="center" style="padding:16px 18px;">
+        <div style="font-family:%(font)s;font-size:14px;font-weight:bold;color:%(ink)s;
+                    padding-bottom:12px;">Need another meeting room?</div>
+        <a href="%(home)s"
+           style="display:inline-block;background:%(accent)s;color:#FFFFFF;
+                  font-family:%(font)s;font-size:14px;font-weight:bold;
+                  text-decoration:none;padding:11px 26px;border-radius:6px;">
+          Book a Room</a>
+      </td></tr>
+    </table>
+  </td></tr>
+
+</table>
+</td></tr></table>
+</body></html>"""
+
+
+def _greeting(recipient: Recipient) -> str:
+    """Address a person by name; a shared mailbox is not a person."""
+    if recipient.kind in (RECEPTION, BRANCH_GROUP):
+        return "Hello,"
+    first = recipient.name.split()[0] if recipient.name.strip() else ""
+    return "Hi " + escape(first) + "," if first else "Hello,"
+
+
+def _row(label: str, value: str, last: bool = False) -> str:
+    """One line of the detail table.
+
+    Tables and inline styles, not flexbox and a stylesheet: Outlook renders mail
+    with Word's engine and Gmail drops most of what a browser would accept. This
+    is the layout that survives both.
+
+    The label column is narrow and the labels are short on purpose - on a phone
+    the card is about 300px wide, and anything longer wraps onto three lines and
+    pushes the details off the screen.
+    """
+    border = "" if last else "border-bottom:1px solid %s;" % LINE
+    return (
+        '<tr>'
+        '<td style="%spadding:10px 14px;background:%s;width:34%%;'
+        'font-family:Arial,Helvetica,sans-serif;font-size:13px;color:%s;">%s</td>'
+        '<td style="%spadding:10px 14px;background:#FFFFFF;'
+        'font-family:Arial,Helvetica,sans-serif;font-size:13px;color:%s;'
+        'font-weight:bold;">%s</td>'
+        '</tr>'
+    ) % (border, SUNK, INK_2, escape(label), border, INK, escape(value))
+
+
+def render_html(
+    booking: Booking, event: NotificationEvent, recipient: Recipient
+) -> str:
+    """The same message, laid out.
+
+    Five rows, not nine. A booking notice is read on a phone in a corridor, and
+    everything that is not room, day, time, department or host is either already
+    in the subject line or something the reader knew before they opened it.
+
+    Everything is inline: no <style> block, no web font, no external image. The
+    logo arrives as an attachment referenced by cid, so it shows even when the
+    app itself is asleep - a hosted src would be a broken picture every time the
+    free instance had spun down.
+    """
+    entry = timeutil.minutes_from_midnight(booking.entry_time)
+    exit_ = timeutil.minutes_from_midnight(booking.exit_time)
+    # "Tue, 08 Sep 2026" rather than "Tuesday 08 September 2026": the long form
+    # wrapped to three lines in the value column on a phone.
+    when = booking.booking_date.strftime("%a, %d %b %Y")
+
+    accent = CANCELLED if event is NotificationEvent.CANCELLED else BRAND
+
+    rows = [
+        _row("Room", booking.room.name),
+        _row("Date", when),
+        _row(
+            "Time",
+            "%s to %s"
+            % (timeutil.format_clock(entry), timeutil.format_clock(exit_)),
+        ),
+        _row("Department", booking.department.name),
+        _row("Host", booking.conductor.full_name, last=True),
+    ]
+
+    home = escape(settings.public_base_url.rstrip("/") + "/", quote=True)
+    font = "Arial,Helvetica,sans-serif"
+
+    return TEMPLATE % {
+        "page": PAGE,
+        "line": LINE,
+        "sunk": SUNK,
+        "ink": INK,
+        "ink2": INK_2,
+        "muted": MUTED,
+        "brand_dark": BRAND_DARK,
+        "accent": accent,
+        "font": font,
+        "logo_cid": LOGO_CID,
+        "title": escape(_EVENT_TITLE[event]),
+        "greeting": _greeting(recipient),
+        "lead": escape(_EVENT_LEAD[event]),
+        "rows": "".join(rows),
+        "home": home,
+    }
 
 
 def render(booking: Booking, event: NotificationEvent, recipient: Recipient) -> RenderedMessage:
@@ -365,6 +544,7 @@ def render(booking: Booking, event: NotificationEvent, recipient: Recipient) -> 
         event=event,
         subject=subject,
         body="\n".join(lines),
+        html=render_html(booking, event, recipient),
     )
 
 

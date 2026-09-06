@@ -351,6 +351,60 @@ def test_the_branch_list_does_not_double_up_on_somebody_already_told(
     assert mine.status == NotificationStatus.SENT
 
 
+def test_the_branch_list_can_be_several_addresses(
+    client, db, users, departments, rooms, day, branch_group_at
+):
+    """One distribution list eventually; a few named people until it exists."""
+    branch_group_at("first@shreenm.com, second@shreenm.com")
+
+    created = post_booking(
+        client,
+        users["rahul"],
+        room_id="ignite",
+        day=day,
+        entry="14:00",
+        exit_="15:00",
+        department_id=departments["Finance"].id,
+        conducted_by=users["rahul"].id,
+    )
+    assert created.status_code == 201, created.text
+
+    rows = {r.recipient: r for r in logs_for(db, created.json()["id"])}
+    assert "first@shreenm.com" in rows
+    assert "second@shreenm.com" in rows
+    assert rows["first@shreenm.com"].status == NotificationStatus.SENT
+    assert rows["second@shreenm.com"].status == NotificationStatus.SENT
+
+
+def test_whitespace_around_a_branch_address_is_forgiven(
+    client, db, users, departments, rooms, day, branch_group_at
+):
+    """These are typed into a dashboard by hand.
+
+    A value pasted with a stray space has already broken this deployment twice -
+    once on SMTP_HOST, once on GOOGLE_REDIRECT_URI - so the addresses are
+    stripped rather than trusted.
+    """
+    branch_group_at("  spaced@shreenm.com  ,	second@shreenm.com ")
+
+    created = post_booking(
+        client,
+        users["rahul"],
+        room_id="ignite",
+        day=day,
+        entry="14:00",
+        exit_="15:00",
+        department_id=departments["Finance"].id,
+        conducted_by=users["rahul"].id,
+    )
+    assert created.status_code == 201, created.text
+
+    addressed = [r.recipient for r in logs_for(db, created.json()["id"])]
+    assert "spaced@shreenm.com" in addressed
+    assert "second@shreenm.com" in addressed
+    assert not any(a != a.strip() for a in addressed)
+
+
 def test_no_branch_list_means_no_extra_recipient(
     client, db, users, departments, rooms, day, branch_group_at
 ):

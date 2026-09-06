@@ -7,6 +7,9 @@
 client_secret*.json
 *credentials*.json
 
+# ---- local mail previews, not part of the app ----
+mail-preview/
+
 # ---- python ----
 __pycache__/
 *.py[cod]

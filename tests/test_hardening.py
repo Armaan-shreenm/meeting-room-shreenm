@@ -212,7 +212,25 @@ def test_smtp_transport_builds_a_well_formed_message(db, users, departments, roo
     assert mail["To"] == "Some One <someone@shreenm.com>"
     assert mail["From"] == "NM Meet <nm-meet@shreenm.com>"
     assert "Power" in mail["Subject"]
-    assert "1 pm to 3 pm" in mail.get_content()
+
+    # Both parts, in the order the standard wants: a client that shows no HTML
+    # must still get the whole message, and it is the first part it will find.
+    text = mail.get_body(preferencelist=("plain",))
+    html = mail.get_body(preferencelist=("html",))
+    assert text is not None and html is not None
+    assert "1 pm to 3 pm" in text.get_content()
+    assert "1 pm to 3 pm" in html.get_content()
+    assert "Power" in html.get_content()
+
+    # The logo travels with the message, so it renders with the app asleep and
+    # without telling the sender who opened the mail.
+    cids = [
+        part.get("Content-ID")
+        for part in mail.walk()
+        if part.get_content_type() == "image/png"
+    ]
+    assert cids == [f"<{notifications.LOGO_CID}>"]
+    assert f"cid:{notifications.LOGO_CID}" in html.get_content()
 
 
 def test_smtp_never_dials_over_ipv6(monkeypatch):

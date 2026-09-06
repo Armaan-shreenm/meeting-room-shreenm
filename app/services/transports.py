@@ -21,22 +21,71 @@ in the system knows or cares which one is installed.
 from __future__ import annotations
 
 import base64
+import functools
 import logging
 import smtplib
 import socket
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
+from pathlib import Path
 
 import httpx
 
 from app.config import settings
 from app.services.notifications import (
+    LOGO_CID,
     RenderedMessage,
     StdoutTransport,
     set_transport,
 )
 
 logger = logging.getLogger(__name__)
+
+
+LOGO_PATH = Path(__file__).resolve().parent.parent.parent / "static" / "logo.png"
+
+
+@functools.lru_cache(maxsize=1)
+def _logo_bytes() -> bytes | None:
+    """The logo, read once. None if it is missing, which is not fatal."""
+    try:
+        return LOGO_PATH.read_bytes()
+    except OSError:
+        logger.warning("No logo at %s; mail will go out without it", LOGO_PATH)
+        return None
+
+
+def build_message(
+    message: RenderedMessage, from_email: str, from_name: str
+) -> EmailMessage:
+    """One MIME message, however it is about to be carried.
+
+    Both transports send exactly the same bytes; only the road differs. Plain
+    text first and HTML as the alternative, which is the order the standard
+    wants and the order that decides what a text-only client shows.
+
+    The logo travels with the message rather than being linked. A hosted image
+    would be a broken picture whenever the app happened to be asleep, and it
+    would tell the sender who opened the mail and when - neither of which a
+    room booking needs.
+    """
+    mail = EmailMessage()
+    mail["Subject"] = message.subject
+    mail["From"] = formataddr((from_name, from_email))
+    mail["To"] = formataddr((message.recipient.name, message.recipient.email))
+    mail.set_content(message.body)
+
+    if message.html:
+        mail.add_alternative(message.html, subtype="html")
+        logo = _logo_bytes()
+        if logo is not None:
+            # Attach to the HTML part, not the message: related to that part is
+            # what makes cid: resolve rather than showing as a stray attachment.
+            mail.get_payload()[-1].add_related(
+                logo, "image", "png", cid=f"<{LOGO_CID}>", filename="logo.png"
+            )
+
+    return mail
 
 
 def _ipv4_socket(host: str, port: int, timeout: float):
@@ -115,12 +164,8 @@ class SmtpTransport:
         self.timeout = timeout
 
     def build(self, message: RenderedMessage) -> EmailMessage:
-        mail = EmailMessage()
-        mail["Subject"] = message.subject
-        mail["From"] = formataddr((self.from_name, self.from_email))
-        mail["To"] = formataddr((message.recipient.name, message.recipient.email))
+        mail = build_message(message, self.from_email, self.from_name)
         mail["Message-ID"] = make_msgid(domain="nm-meet")
-        mail.set_content(message.body)
         return mail
 
     def send(self, message: RenderedMessage) -> None:
@@ -176,12 +221,8 @@ class GmailApiTransport:
         self.timeout = timeout
 
     def build(self, message: RenderedMessage) -> EmailMessage:
-        mail = EmailMessage()
-        mail["Subject"] = message.subject
-        mail["From"] = formataddr((self.from_name, self.from_email))
-        mail["To"] = formataddr((message.recipient.name, message.recipient.email))
-        mail.set_content(message.body)
-        return mail
+        # No Message-ID: Gmail assigns its own, and a second one is a duplicate.
+        return build_message(message, self.from_email, self.from_name)
 
     def _access_token(self) -> str:
         """Trade the refresh token for an access token good for an hour.
