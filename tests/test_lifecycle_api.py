@@ -292,6 +292,102 @@ def branch_group_at(monkeypatch):
     return _set
 
 
+def _html_for(booking_row, db, kind, event=NotificationEvent.BOOKED):
+    """Render one booking's mail as the given kind of recipient would see it."""
+    booking = db.scalar(
+        select(Booking).where(Booking.id == uuid.UUID(str(booking_row["id"])))
+    )
+    recipient = notifications.Recipient(
+        email="whoever@shreenm.com", name="Who Ever", kind=kind
+    )
+    return notifications.render_html(booking, event, recipient)
+
+
+def test_the_branch_list_gets_an_update_not_a_confirmation(
+    client, db, users, departments, rooms, day
+):
+    """Nobody on the branch list asked for the room.
+
+    Telling forty people "Your Meeting Room is Booked!" reads as a mistake the
+    first time and as noise every time after.
+    """
+    created = post_booking(
+        client,
+        users["rahul"],
+        room_id="ignite",
+        day=day,
+        entry="14:00",
+        exit_="15:00",
+        department_id=departments["Finance"].id,
+        conducted_by=users["rahul"].id,
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+
+    to_group = _html_for(body, db, notifications.BRANCH_GROUP)
+    assert notifications.GROUP_TITLE in to_group
+    assert notifications.GROUP_BADGE in to_group
+    assert "booked by another person" in to_group
+    assert "Your Meeting Room is Booked" not in to_group
+    # A distribution list is not a person to say hello to.
+    assert "Hi " not in to_group
+
+    to_booker = _html_for(body, db, notifications.BOOKER)
+    assert "Your Meeting Room is Booked" in to_booker
+    assert notifications.GROUP_TITLE not in to_booker
+    assert ">MEET<" in to_booker
+
+
+def test_a_cancellation_reaches_the_branch_list_as_an_update(
+    client, db, users, departments, rooms, day
+):
+    """The booker is told theirs is cancelled; the branch is told the room is free."""
+    created = post_booking(
+        client,
+        users["rahul"],
+        room_id="ignite",
+        day=day,
+        entry="14:00",
+        exit_="15:00",
+        department_id=departments["Finance"].id,
+        conducted_by=users["rahul"].id,
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+
+    to_group = _html_for(
+        body, db, notifications.BRANCH_GROUP, NotificationEvent.CANCELLED
+    )
+    assert notifications.GROUP_TITLE in to_group
+    assert "free again" in to_group
+
+    to_booker = _html_for(body, db, notifications.BOOKER, NotificationEvent.CANCELLED)
+    assert "Your Booking Was Cancelled" in to_booker
+
+
+def test_both_audiences_are_invited_to_book_a_room(
+    client, db, users, departments, rooms, day
+):
+    """The footer is the same on both: whoever read it may want a room too."""
+    created = post_booking(
+        client,
+        users["rahul"],
+        room_id="ignite",
+        day=day,
+        entry="14:00",
+        exit_="15:00",
+        department_id=departments["Finance"].id,
+        conducted_by=users["rahul"].id,
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+
+    for kind in (notifications.BOOKER, notifications.BRANCH_GROUP):
+        html = _html_for(body, db, kind)
+        assert "Need another meeting room?" in html, kind
+        assert "Book a Room" in html, kind
+
+
 def test_the_branch_list_hears_about_every_booking(
     client, db, users, departments, rooms, day, branch_group_at
 ):

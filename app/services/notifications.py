@@ -80,6 +80,27 @@ _EVENT_LEAD = {
     NotificationEvent.CANCELLED: "This meeting room booking has been cancelled.",
 }
 
+# The branch list is not the booker and never was - nobody on it asked for the
+# room. Telling forty people "Your Meeting Room is Booked!" reads as a mistake
+# the first time and as noise every time after, so the same facts go out under
+# a heading that says what this actually is: somebody else booked a room.
+GROUP_TITLE = "Meeting Booking Update"
+GROUP_BADGE = "UPDATE"
+_GROUP_LEAD = {
+    NotificationEvent.BOOKED: (
+        "This meeting room has been booked by another person. "
+        "Here are the details:"
+    ),
+    NotificationEvent.CHANGED: (
+        "The details of this meeting room booking have changed. "
+        "Here are the new details:"
+    ),
+    NotificationEvent.CANCELLED: (
+        "This meeting room booking has been cancelled. "
+        "The room is free again."
+    ),
+}
+
 # The palette is index.html's, so a message and the app it came from look like
 # one product. Cancellations borrow the grid's "unavailable" red instead.
 BRAND = "#F5A300"
@@ -379,7 +400,7 @@ TEMPLATE = """<!DOCTYPE html>
       <td style="padding-left:8px;">
         <span style="font-family:%(font)s;font-size:9px;font-weight:bold;color:#FFFFFF;
                      background:%(accent)s;padding:3px 6px;border-radius:3px;
-                     letter-spacing:1.2px;">MEET</span></td>
+                     letter-spacing:1.2px;">%(badge)s</span></td>
     </tr></table>
   </td></tr>
 
@@ -387,7 +408,7 @@ TEMPLATE = """<!DOCTYPE html>
     <div style="font-family:%(font)s;font-size:19px;line-height:1.3;font-weight:bold;
                 color:%(ink)s;">%(title)s</div>
     <div style="font-family:%(font)s;font-size:13px;color:%(muted)s;padding-top:7px;">
-      %(greeting)s %(lead)s</div>
+      %(intro)s</div>
   </td></tr>
 
   <tr><td style="padding:16px 20px 0 20px;">
@@ -457,6 +478,12 @@ def render_html(
     everything that is not room, day, time, department or host is either already
     in the subject line or something the reader knew before they opened it.
 
+    Two versions of it, decided by who is reading. The person who booked the
+    room gets the confirmation. The branch list gets the same facts as an
+    update, because nobody on that list asked for the room and addressing them
+    as though they had is how a useful notice turns into ignored noise. Both
+    end with the same invitation to book a room of their own.
+
     Everything is inline: no <style> block, no web font, no external image. The
     logo arrives as an attachment referenced by cid, so it shows even when the
     app itself is asleep - a hosted src would be a broken picture every time the
@@ -469,6 +496,19 @@ def render_html(
     when = booking.booking_date.strftime("%a, %d %b %Y")
 
     accent = CANCELLED if event is NotificationEvent.CANCELLED else BRAND
+
+    # The branch list is told about somebody else's booking; everybody else on
+    # the message is on the booking itself.
+    to_the_branch = recipient.kind == BRANCH_GROUP
+    if to_the_branch:
+        badge = GROUP_BADGE
+        title = GROUP_TITLE
+        # No greeting: a distribution list is not a person to say hello to.
+        intro = escape(_GROUP_LEAD[event])
+    else:
+        badge = "MEET"
+        title = _EVENT_TITLE[event]
+        intro = _greeting(recipient) + " " + escape(_EVENT_LEAD[event])
 
     rows = [
         _row("Room", booking.room.name),
@@ -496,9 +536,9 @@ def render_html(
         "accent": accent,
         "font": font,
         "logo_cid": LOGO_CID,
-        "title": escape(_EVENT_TITLE[event]),
-        "greeting": _greeting(recipient),
-        "lead": escape(_EVENT_LEAD[event]),
+        "badge": badge,
+        "title": escape(title),
+        "intro": intro,
         "rows": "".join(rows),
         "home": home,
     }
