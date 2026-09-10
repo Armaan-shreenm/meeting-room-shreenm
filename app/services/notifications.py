@@ -80,10 +80,10 @@ _EVENT_LEAD = {
     NotificationEvent.CANCELLED: "This meeting room booking has been cancelled.",
 }
 
-# The branch list is not the booker and never was - nobody on it asked for the
-# room. Telling forty people "Your Meeting Room is Booked!" reads as a mistake
-# the first time and as noise every time after, so the same facts go out under
-# a heading that says what this actually is: somebody else booked a room.
+# The front desk and the branch list are not the booker and never were - neither
+# asked for the room. Telling them "Your Meeting Room is Booked!" reads as a
+# mistake the first time and as noise every time after, so the same facts go out
+# under a heading that says what this actually is: somebody else booked a room.
 GROUP_TITLE = "Meeting Booking Update"
 GROUP_BADGE = "UPDATE"
 _GROUP_LEAD = {
@@ -478,11 +478,12 @@ def render_html(
     everything that is not room, day, time, department or host is either already
     in the subject line or something the reader knew before they opened it.
 
-    Two versions of it, decided by who is reading. The person who booked the
-    room gets the confirmation. The branch list gets the same facts as an
-    update, because nobody on that list asked for the room and addressing them
-    as though they had is how a useful notice turns into ignored noise. Both
-    end with the same invitation to book a room of their own.
+    Two versions of it, decided by who is reading. The people on the booking -
+    the booker, the host, the attendees - get the confirmation, because it is
+    theirs. The front desk and the branch list get the same facts as an update,
+    because neither asked for the room and addressing them as though they had is
+    how a useful notice turns into ignored noise. Both end with the same
+    invitation to book a room of their own.
 
     Everything is inline: no <style> block, no web font, no external image. The
     logo arrives as an attachment referenced by cid, so it shows even when the
@@ -497,10 +498,12 @@ def render_html(
 
     accent = CANCELLED if event is NotificationEvent.CANCELLED else BRAND
 
-    # The branch list is told about somebody else's booking; everybody else on
-    # the message is on the booking itself.
-    to_the_branch = recipient.kind == BRANCH_GROUP
-    if to_the_branch:
+    # Who is on the booking, and who is only being told about it. The front desk
+    # and the branch list are both onlookers - neither asked for the room - so
+    # both get the notice. The booker, the host and the attendees get the
+    # confirmation, because it is theirs.
+    an_onlooker = recipient.kind in (RECEPTION, BRANCH_GROUP)
+    if an_onlooker:
         badge = GROUP_BADGE
         title = GROUP_TITLE
         # No greeting: a distribution list is not a person to say hello to.

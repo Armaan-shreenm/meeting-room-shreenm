@@ -175,8 +175,9 @@ services:
       - key: RECEPTION_EMAIL
         sync: false
       # The branch list, told about every booking the moment it is made. One
-      # address, or several separated by commas while the real distribution
-      # list does not exist yet. Dashboard-set, because it changes often.
+      # address, or several separated by commas. Leave it empty and the branch
+      # is not written to at all, which is the current arrangement - only the
+      # booker and the front desk are notified.
       - key: MUMBAI_GROUP_EMAIL
         sync: false
       - key: CALENDAR_INVITE_ENABLED

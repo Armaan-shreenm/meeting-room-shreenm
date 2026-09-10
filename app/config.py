@@ -169,7 +169,14 @@ class Settings(BaseSettings):
     # One address or several, comma-separated. Singular name, because one real
     # distribution list is where this ends up; the plural is for the meantime,
     # when the list does not exist yet and two or three people stand in for it.
-    mumbai_group_email: str = "mumbai.all@shreenm.com"
+    #
+    # Empty by default, which is a deliberate choice rather than an oversight: a
+    # real-looking default here is a trap. Deleting the variable from a
+    # dashboard reads as "stop mailing the branch" and would instead have
+    # started mailing whatever address the default named - a mailbox nobody
+    # reads, or one that does not exist and bounces every booking. Nobody is
+    # written to unless somebody says who.
+    mumbai_group_email: str = ""
     # D-02: an .ics invite is attached; no video-conference link is created.
     calendar_invite_enabled: bool = True
 

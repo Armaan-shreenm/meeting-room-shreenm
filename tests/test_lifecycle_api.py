@@ -337,6 +337,11 @@ def test_the_branch_list_gets_an_update_not_a_confirmation(
     assert notifications.GROUP_TITLE not in to_booker
     assert ">MEET<" in to_booker
 
+    # The front desk did not ask for the room either, so it reads the notice.
+    to_reception = _html_for(body, db, notifications.RECEPTION)
+    assert notifications.GROUP_TITLE in to_reception
+    assert "Your Meeting Room is Booked" not in to_reception
+
 
 def test_a_cancellation_reaches_the_branch_list_as_an_update(
     client, db, users, departments, rooms, day
@@ -382,7 +387,11 @@ def test_both_audiences_are_invited_to_book_a_room(
     assert created.status_code == 201, created.text
     body = created.json()
 
-    for kind in (notifications.BOOKER, notifications.BRANCH_GROUP):
+    for kind in (
+        notifications.BOOKER,
+        notifications.RECEPTION,
+        notifications.BRANCH_GROUP,
+    ):
         html = _html_for(body, db, kind)
         assert "Need another meeting room?" in html, kind
         assert "Book a Room" in html, kind
@@ -445,6 +454,19 @@ def test_the_branch_list_does_not_double_up_on_somebody_already_told(
     # And the one copy is actually sent, not quietly parked.
     mine = next(r for r in rows if r.recipient == users["rahul"].email)
     assert mine.status == NotificationStatus.SENT
+
+
+def test_nobody_is_mailed_by_default(client, db, users, departments, rooms, day):
+    """The branch list ships empty, and that is the point.
+
+    A real-looking default would be a trap: deleting the variable from a
+    dashboard reads as "stop mailing the branch" and would instead start mailing
+    whatever the default named - a mailbox nobody reads, or one that bounces
+    every booking. Nobody is written to unless somebody says who.
+    """
+    from app.config import Settings
+
+    assert Settings.model_fields["mumbai_group_email"].default == ""
 
 
 def test_the_branch_list_can_be_several_addresses(
