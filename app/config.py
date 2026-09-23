@@ -130,7 +130,7 @@ class Settings(BaseSettings):
     # The From header, and the identity mail is sent as. Named for SMTP because
     # that came first; it applies to whichever transport is installed.
     smtp_from_email: str = "nm-meet@example.invalid"
-    smtp_from_name: str = "NM Meet"
+    smtp_from_name: str = "Shree NM Meet"
 
     # ---- Gmail API ----------------------------------------------------------
     # Preferred over SMTP wherever a refresh token exists, and on Render it is

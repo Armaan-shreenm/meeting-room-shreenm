@@ -156,7 +156,7 @@ services:
       - key: SMTP_FROM_EMAIL
         sync: false
       - key: SMTP_FROM_NAME
-        value: NM Meet
+        value: Shree NM Meet
 
       # ---- Gmail API --------------------------------------------------------
       # This is what actually delivers on Render. Free instances block outbound
