@@ -19,7 +19,10 @@ from tests.conftest import booking_payload, headers_for
 # =============================================================================
 
 
-EXPECTED = {"spark": 4, "power": 7, "pulse": 3, "ignite": 2, "switch": 2}
+EXPECTED = {
+    "spark": 4, "power": 7, "pulse": 3, "ignite": 2, "switch": 2,
+    "core": 4, "relay": 4, "connect": 4,
+}
 
 
 def test_rooms_carry_their_minimum_party_size(client, users):

@@ -72,7 +72,7 @@ def test_reference_data_is_open(client, path):
 def test_the_grid_is_open(client, day):
     response = client.get(f"/api/availability?date={day.isoformat()}")
     assert response.status_code == 200, response.text
-    assert len(response.json()["rooms"]) == 5
+    assert len(response.json()["rooms"]) == 8
 
 
 def test_the_exit_cap_is_open(client, day):

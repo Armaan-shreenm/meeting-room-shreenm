@@ -99,11 +99,13 @@ def test_an_explicit_host_is_still_honoured(
 # =============================================================================
 
 
-def test_rooms_endpoint_returns_five_in_display_order(client, users):
+def test_rooms_endpoint_returns_eight_in_display_order(client, users):
     response = client.get("/api/rooms", headers=headers_for(users["priya"]))
     assert response.status_code == 200
     body = response.json()
-    assert [r["id"] for r in body] == ["spark", "power", "pulse", "ignite", "switch"]
+    assert [r["id"] for r in body] == [
+        "spark", "power", "pulse", "ignite", "switch", "core", "relay", "connect"
+    ]
     # The frontend colours each room from this variable.
     assert body[0]["colour_var"] == "--spark"
 
@@ -407,10 +409,12 @@ def test_T06_simultaneous_identical_bookings_yield_one_201_and_one_409(
     assert "still free from 1 pm to 3 pm" in detail
     assert "13:00" not in detail
 
-    # The free list is computed, so it names the other four rooms.
-    for name in ("Spark", "Pulse", "Ignite", "Switch"):
+    # The free list is computed, so it names the other seven rooms.
+    for name in ("Spark", "Pulse", "Ignite", "Switch", "Core", "Relay", "Connect"):
         assert name in detail
-    assert set(loser["free_rooms"]) == {"Spark", "Pulse", "Ignite", "Switch"}
+    assert set(loser["free_rooms"]) == {
+        "Spark", "Pulse", "Ignite", "Switch", "Core", "Relay", "Connect"
+    }
 
     # Exactly one row reached the database.
     with SessionLocal() as session:
@@ -424,7 +428,9 @@ def test_all_rooms_taken_names_the_first_to_free_up(
     client, users, departments, rooms, day
 ):
     """Section 10's other clash message, with both values computed."""
-    for room_id in ("spark", "power", "pulse", "ignite", "switch"):
+    for room_id in (
+        "spark", "power", "pulse", "ignite", "switch", "core", "relay", "connect"
+    ):
         created = post_booking(
             client,
             users["rahul"],
@@ -450,7 +456,7 @@ def test_all_rooms_taken_names_the_first_to_free_up(
     assert sixth.status_code == 409
     detail = sixth.json()["detail"]
 
-    assert detail.startswith("All five rooms are booked between 1 pm and 3 pm.")
+    assert detail.startswith("All eight rooms are booked between 1 pm and 3 pm.")
     assert "The first free room is" in detail
     assert "at 3 pm." in detail
     assert sixth.json()["free_rooms"] == []
@@ -656,8 +662,8 @@ def test_availability_reports_sunday_as_closed(client, users):
     body = client.get(f"/api/availability?date={sunday.isoformat()}", headers=headers_for(users["priya"])).json()
     assert body["closed"] is True
     assert body["closed_reason"] == "weekly_closure"
-    # The grid still gets all five rooms so it can render itself greyed out.
-    assert len(body["rooms"]) == 5
+    # The grid still gets all eight rooms so it can render itself greyed out.
+    assert len(body["rooms"]) == 8
     assert all(r["free_slot_count"] == 0 for r in body["rooms"])
 
 

@@ -31,7 +31,7 @@ from app.models import Department, Room, User
 
 logger = logging.getLogger("scripts.seed")
 
-# The five rooms, in the order the grid shows them. colour_var is the CSS custom
+# The eight rooms, in the order the grid shows them. colour_var is the CSS custom
 # property the approved frontend already uses for each room.
 # id, name, display order, colour variable, minimum sensible party size.
 ROOMS: tuple[tuple[str, str, int, str, int], ...] = (
@@ -40,6 +40,9 @@ ROOMS: tuple[tuple[str, str, int, str, int], ...] = (
     ("pulse", "Pulse", 3, "--pulse", 3),
     ("ignite", "Ignite", 4, "--ignite", 2),
     ("switch", "Switch", 5, "--switch", 2),
+    ("core", "Core", 6, "--core", 4),
+    ("relay", "Relay", 7, "--relay", 4),
+    ("connect", "Connect", 8, "--connect", 4),
 )
 
 DEPARTMENTS: tuple[tuple[str, int], ...] = (
@@ -90,7 +93,7 @@ def seed_departments(db: Session) -> dict[str, Department]:
 
 
 def seed_rooms(db: Session) -> None:
-    """Insert or refresh the five rooms."""
+    """Insert or refresh the eight rooms."""
     existing = {r.id: r for r in db.scalars(select(Room)).all()}
 
     for room_id, name, order, colour_var, min_people in ROOMS:

@@ -250,7 +250,9 @@ def test_T06_two_simultaneous_confirms_one_wins_one_is_told_why(
     assert "still free from 1 pm to 3 pm" in detail
     assert detail not in ("Invalid selection", "Booking failed")
     # The free-room list is computed, and lets the screen refresh correctly.
-    assert set(loser["free_rooms"]) == {"Spark", "Pulse", "Ignite", "Switch"}
+    assert set(loser["free_rooms"]) == {
+        "Spark", "Pulse", "Ignite", "Switch", "Core", "Relay", "Connect"
+    }
 
     from app.database import SessionLocal
 
@@ -559,14 +561,16 @@ def test_T13_cancelling_a_running_booking_releases_remaining_time(
     assert freed.status_code == 201, freed.text
 
 
-def test_T14_all_five_booked_names_the_first_room_to_free_up(
+def test_T14_all_eight_booked_names_the_first_room_to_free_up(
     client, users, departments, rooms, day
 ):
-    """T-14. Book all five rooms 1-3 pm, then try a sixth booking.
+    """T-14. Book all eight rooms 1-3 pm, then try a ninth booking.
 
     Expected: message names the first room to free up.
     """
-    for room_id in ("spark", "power", "pulse", "ignite", "switch"):
+    for room_id in (
+        "spark", "power", "pulse", "ignite", "switch", "core", "relay", "connect"
+    ):
         created = post_booking(
             client,
             users["rahul"],
@@ -593,7 +597,7 @@ def test_T14_all_five_booked_names_the_first_room_to_free_up(
     assert sixth.status_code == 409
     detail = sixth.json()["detail"]
 
-    assert detail.startswith("All five rooms are booked between 1 pm and 3 pm.")
+    assert detail.startswith("All eight rooms are booked between 1 pm and 3 pm.")
     assert "The first free room is" in detail
     assert detail.endswith("at 3 pm.")
     assert sixth.json()["free_rooms"] == []
