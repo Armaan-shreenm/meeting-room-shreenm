@@ -37,6 +37,7 @@ import logging
 import queue
 import threading
 from dataclasses import dataclass
+from email.message import EmailMessage
 from html import escape
 from typing import Protocol
 
@@ -166,6 +167,16 @@ class StdoutTransport:
             message.recipient.kind,
             message.subject,
             message.body,
+            "-" * 64,
+        )
+
+    def deliver(self, mail: EmailMessage) -> None:
+        """A composed message that is not a booking notice, e.g. a report."""
+        logger.info(
+            "MAIL -> %s\nSubject: %s\n%s\n%s",
+            mail["To"],
+            mail["Subject"],
+            mail.get_body(preferencelist=("plain",)).get_content(),
             "-" * 64,
         )
 

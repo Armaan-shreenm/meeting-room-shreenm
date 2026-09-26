@@ -55,8 +55,15 @@ def _logo_bytes() -> bytes | None:
         return None
 
 
-def build_message(
-    message: RenderedMessage, from_email: str, from_name: str
+def compose(
+    *,
+    subject: str,
+    text: str,
+    html: str,
+    to_email: str,
+    to_name: str,
+    from_email: str,
+    from_name: str,
 ) -> EmailMessage:
     """One MIME message, however it is about to be carried.
 
@@ -70,13 +77,13 @@ def build_message(
     room booking needs.
     """
     mail = EmailMessage()
-    mail["Subject"] = message.subject
+    mail["Subject"] = subject
     mail["From"] = formataddr((from_name, from_email))
-    mail["To"] = formataddr((message.recipient.name, message.recipient.email))
-    mail.set_content(message.body)
+    mail["To"] = formataddr((to_name, to_email))
+    mail.set_content(text)
 
-    if message.html:
-        mail.add_alternative(message.html, subtype="html")
+    if html:
+        mail.add_alternative(html, subtype="html")
         logo = _logo_bytes()
         if logo is not None:
             # Attach to the HTML part, not the message: related to that part is
@@ -86,6 +93,21 @@ def build_message(
             )
 
     return mail
+
+
+def build_message(
+    message: RenderedMessage, from_email: str, from_name: str
+) -> EmailMessage:
+    """A booking notice as MIME - :func:`compose` with the notice's fields."""
+    return compose(
+        subject=message.subject,
+        text=message.body,
+        html=message.html,
+        to_email=message.recipient.email,
+        to_name=message.recipient.name,
+        from_email=from_email,
+        from_name=from_name,
+    )
 
 
 def _ipv4_socket(host: str, port: int, timeout: float):
@@ -168,8 +190,10 @@ class SmtpTransport:
         mail["Message-ID"] = make_msgid(domain="nm-meet")
         return mail
 
-    def send(self, message: RenderedMessage) -> None:
-        mail = self.build(message)
+    def deliver(self, mail: EmailMessage) -> None:
+        """Put one already-composed message on the wire."""
+        if "Message-ID" not in mail:
+            mail["Message-ID"] = make_msgid(domain="nm-meet")
 
         with _IPv4SMTP(self.host, self.port, timeout=self.timeout) as server:
             server.ehlo()
@@ -180,6 +204,8 @@ class SmtpTransport:
                 server.login(self.username, self.password)
             server.send_message(mail)
 
+    def send(self, message: RenderedMessage) -> None:
+        self.deliver(self.build(message))
         logger.info(
             "Sent %s to %s over SMTP", message.event.value, message.recipient.email
         )
@@ -254,8 +280,8 @@ class GmailApiTransport:
             raise RuntimeError("Gmail returned no access token")
         return token
 
-    def send(self, message: RenderedMessage) -> None:
-        mail = self.build(message)
+    def deliver(self, mail: EmailMessage) -> None:
+        """Put one already-composed message in the mailbox's outbox."""
         raw = base64.urlsafe_b64encode(mail.as_bytes()).decode("ascii")
 
         response = httpx.post(
@@ -269,6 +295,8 @@ class GmailApiTransport:
                 f"Gmail refused the message: {response.status_code} {response.text}"
             )
 
+    def send(self, message: RenderedMessage) -> None:
+        self.deliver(self.build(message))
         logger.info(
             "Sent %s to %s over the Gmail API",
             message.event.value,
@@ -276,8 +304,8 @@ class GmailApiTransport:
         )
 
 
-def configure_transport() -> str:
-    """Install the right transport for this environment, and say which.
+def select_transport() -> GmailApiTransport | SmtpTransport | StdoutTransport:
+    """The transport this environment's configuration describes, not installed.
 
     SMTP is used only when it is switched on *and* a host is configured. A
     half-configured relay falls back to stdout with a warning rather than
@@ -285,43 +313,46 @@ def configure_transport() -> str:
     losing them silently is the one outcome to avoid.
     """
     if settings.notifications_enabled and settings.gmail_refresh_token:
-        set_transport(
-            GmailApiTransport(
-                client_id=settings.gmail_client_id,
-                client_secret=settings.gmail_client_secret,
-                refresh_token=settings.gmail_refresh_token,
-                from_email=settings.smtp_from_email,
-                from_name=settings.smtp_from_name,
-            )
+        return GmailApiTransport(
+            client_id=settings.gmail_client_id,
+            client_secret=settings.gmail_client_secret,
+            refresh_token=settings.gmail_refresh_token,
+            from_email=settings.smtp_from_email,
+            from_name=settings.smtp_from_name,
         )
-        logger.info("Notifications will be sent over the Gmail API as %s", settings.smtp_from_email)
-        return "gmail-api"
 
     if settings.notifications_enabled and settings.smtp_host:
-        set_transport(
-            SmtpTransport(
-                host=settings.smtp_host,
-                port=settings.smtp_port,
-                username=settings.smtp_user,
-                password=settings.smtp_password,
-                use_starttls=settings.smtp_starttls,
-                from_email=settings.smtp_from_email,
-                from_name=settings.smtp_from_name,
-            )
+        return SmtpTransport(
+            host=settings.smtp_host,
+            port=settings.smtp_port,
+            username=settings.smtp_user,
+            password=settings.smtp_password,
+            use_starttls=settings.smtp_starttls,
+            from_email=settings.smtp_from_email,
+            from_name=settings.smtp_from_name,
         )
-        logger.info(
-            "Notifications will be sent over SMTP via %s:%s",
-            settings.smtp_host,
-            settings.smtp_port,
-        )
-        return "smtp"
 
     if settings.notifications_enabled and not settings.smtp_host:
         logger.warning(
             "NOTIFICATIONS_ENABLED is true but SMTP_HOST is empty. "
             "Falling back to stdout so notifications are still recorded."
         )
+    return StdoutTransport()
 
-    set_transport(StdoutTransport())
-    logger.info("Notifications will be written to stdout")
-    return "stdout"
+
+def configure_transport() -> str:
+    """Install the right transport for this environment, and say which."""
+    transport = select_transport()
+    set_transport(transport)
+
+    if isinstance(transport, GmailApiTransport):
+        logger.info("Notifications will be sent over the Gmail API as %s", settings.smtp_from_email)
+    elif isinstance(transport, SmtpTransport):
+        logger.info(
+            "Notifications will be sent over SMTP via %s:%s",
+            settings.smtp_host,
+            settings.smtp_port,
+        )
+    else:
+        logger.info("Notifications will be written to stdout")
+    return transport.name

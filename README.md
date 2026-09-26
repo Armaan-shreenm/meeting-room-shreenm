@@ -231,6 +231,40 @@ print(password)   # give it to them, then forget it
 To remove somebody, set `is_active = False`. Never delete: their bookings
 reference them and the audit record must survive.
 
+**Weekly usage report.** Two numbers for the working week just ended (Mon-Sat,
+branch time): **people who signed in** and **meetings scheduled**. It goes to
+`USAGE_REPORT_RECIPIENTS` from the same mailbox as booking mail.
+
+- *People who signed in* counts every distinct person with a sign-in, a booking
+  made, or a cancel/edit/reply in the week. The schema keeps only each user's
+  latest sign-in, so somebody who signed in, did nothing, and signed in again
+  after the week ended is the one case it misses.
+- *Meetings scheduled* counts bookings made in the week (`created_at`) that
+  were not cancelled afterwards. Exact.
+
+```bash
+python -m scripts.usage_report                                   # last week: print + HTML preview, sends nothing
+python -m scripts.usage_report --from 2026-09-21 --to 2026-09-25 # any period
+python -m scripts.usage_report --send                            # to USAGE_REPORT_RECIPIENTS
+python -m scripts.usage_report --send --recipient me@shreenm.com # a test copy to one address only
+```
+
+Nothing is sent without `--send`. Outside production the mail is marked
+`[Preview]`, so a test copy can never pass for real figures.
+
+To schedule it every Sunday, use either of the two triggers. Both work on any host:
+
+- **Run the command.** Use cron on a server (`30 3 * * 0` is 09:00 IST), an
+  EventBridge Scheduler rule that starts an ECS task, or a Render cron job.
+  The command must run with the app's environment and be able to reach the
+  database.
+- **Call the URL.** Set `USAGE_REPORT_TOKEN`, then have the scheduler send
+  `POST /api/reports/weekly-usage` with the header `X-Report-Token: <token>`.
+  An optional body `{"start": "2026-09-21", "end": "2026-09-25"}` overrides
+  the week. This suits hosts where the database is private, and an
+  EventBridge API destination or cron-job.org can make the call. A retried
+  call sends the report again.
+
 **Run one QA suite.**
 
 ```bash

@@ -180,6 +180,18 @@ class Settings(BaseSettings):
     # D-02: an .ics invite is attached; no video-conference link is created.
     calendar_invite_enabled: bool = True
 
+    # ---------------------------------------------------- weekly usage report
+    # Who receives the Sunday usage report: people who signed in and meetings
+    # scheduled. One address or several, comma-separated. Empty by default for
+    # the same reason as MUMBAI_GROUP_EMAIL - nobody is written to unless
+    # somebody says who - and an empty value means the report is not sent.
+    usage_report_recipients: str = ""
+    # Shared secret for POST /api/reports/weekly-usage, the endpoint an
+    # external scheduler calls (EventBridge, cron, GitHub Actions). Empty means
+    # the endpoint does not exist. Generate one with:
+    #   python -c "import secrets; print(secrets.token_urlsafe(32))"
+    usage_report_token: str = ""
+
     # ------------------------------------------------------------ hardening
     # Booking writes per session per window. Reads are never limited: the grid
     # polls availability every minute.
@@ -270,6 +282,15 @@ class Settings(BaseSettings):
         cost this deployment two broken releases.
         """
         return [part.strip() for part in self.mumbai_group_email.split(",") if part.strip()]
+
+    @property
+    def usage_report_recipient_list(self) -> list[str]:
+        """The report's recipients, split into addresses, whitespace forgiven."""
+        return [
+            part.strip()
+            for part in self.usage_report_recipients.split(",")
+            if part.strip()
+        ]
 
     @property
     def timezone(self) -> ZoneInfo:

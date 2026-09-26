@@ -266,7 +266,7 @@ def test_smtp_never_dials_over_ipv6(monkeypatch):
     # And the transport actually uses it, rather than plain smtplib.
     import inspect
 
-    assert "_IPv4SMTP" in inspect.getsource(transports.SmtpTransport.send)
+    assert "_IPv4SMTP" in inspect.getsource(transports.SmtpTransport.deliver)
     assert issubclass(transports._IPv4SMTP, __import__("smtplib").SMTP)
 
 

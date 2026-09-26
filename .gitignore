@@ -74,3 +74,6 @@ logfile
 *.db
 *.log
 logs/
+
+# ---- local previews of the weekly usage report ----
+usage-report-preview.html

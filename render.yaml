@@ -183,4 +183,12 @@ services:
       - key: CALENDAR_INVITE_ENABLED
         value: "true"
 
+      # ---- weekly usage report ----------------------------------------------
+      # Who gets the Sunday report, and the secret a scheduler sends in
+      # X-Report-Token to POST /api/reports/weekly-usage. Both empty = off.
+      - key: USAGE_REPORT_RECIPIENTS
+        sync: false
+      - key: USAGE_REPORT_TOKEN
+        sync: false
+
 # =============================================================================
